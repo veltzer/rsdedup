@@ -38,6 +38,13 @@ These apply to all subcommands that scan files:
 | `--jobs <N>` / `-j` | Number of parallel workers (default: number of CPUs) |
 | `--path <PATH>` / `-p` | Directory to scan (default: current working directory) |
 | `--no-cache` | Disable the hash cache, recompute all hashes |
+| `--check-permissions` | Consider file permissions when comparing (default: permissions are ignored) |
+| `--exclude <GLOB>` | Skip files matching a glob pattern (e.g. `*.log`, `.git/**`). Can be repeated. |
+| `--include <GLOB>` | Only consider files matching a glob pattern. Can be repeated. |
+| `--same-name` | Only consider files with the same filename as duplicates |
+| `--across-dirs` | Only report duplicates that span different directories |
+| `--sort <CRITERIA>` | Sort duplicate groups by: `size` (default), `count`, `path` |
+| `--top <N>` | Only show the top N duplicate groups (by wasted space) |
 
 ### Subcommands
 
@@ -70,9 +77,25 @@ Replace duplicate files with symlinks to a single copy.
 |------|-------------|
 | `--dry-run` / `-n` | Show what would be symlinked without making changes |
 
+#### `rsdedup interactive [PATH]`
+
+TUI mode. Presents each duplicate group one at a time and lets you choose what to do per group (keep, delete, hardlink, symlink, skip).
+
+#### `rsdedup diff <PATH1> <PATH2>`
+
+Compare two directories and show which files are duplicated across them. Useful for answering "do I already have a backup of this?"
+
 #### `rsdedup scan [PATH]`
 
 Scan a directory and populate the hash cache without performing any dedup action. Useful for warming up the cache ahead of time so that subsequent `report`/`delete`/`hardlink`/`symlink` runs are faster.
+
+#### `rsdedup undo`
+
+Reverse the last destructive operation (`delete`, `hardlink`, `symlink`) using the action history log at `~/.rsdedup/history.log`. For deletes, files must have been moved to trash (not permanently removed) for undo to work.
+
+#### `rsdedup completions <SHELL>`
+
+Generate shell completions for `bash`, `zsh`, or `fish`.
 
 #### `rsdedup cache <ACTION>`
 
@@ -109,6 +132,24 @@ rsdedup cache stats
 
 # Clear the cache
 rsdedup cache clear
+
+# Interactive mode — review each duplicate group
+rsdedup interactive /home/user/photos
+
+# Compare two directories for shared files
+rsdedup diff /home/user/photos /mnt/backup/photos
+
+# Only show top 10 largest duplicate groups
+rsdedup report --sort size --top 10
+
+# Exclude git and node_modules directories
+rsdedup report --exclude '.git/**' --exclude 'node_modules/**'
+
+# Only find duplicate images
+rsdedup report --include '*.jpg' --include '*.png'
+
+# Generate shell completions
+rsdedup completions bash > /etc/bash_completion.d/rsdedup
 ```
 
 ## Architecture
@@ -132,12 +173,16 @@ src/
 ├── main.rs          # CLI parsing (clap), orchestration
 ├── scanner.rs       # Directory walking, metadata collection
 ├── grouper.rs       # Group files by size
+├── filter.rs        # Include/exclude glob filtering, same-name, across-dirs
 ├── compare.rs       # Comparison strategies (hash, byte-for-byte)
 ├── hasher.rs        # Hashing implementations (SHA256, xxHash, BLAKE3)
-├── cache.rs         # Hash cache (SQLite in ~/.rsdedup/cache.db)
+├── cache.rs         # Hash cache (sled at ~/.rsdedup/cache.db)
 ├── action.rs        # Actions: report, hardlink, symlink, delete
+├── history.rs       # Action history log and undo support
+├── interactive.rs   # TUI mode (ratatui)
+├── diff.rs          # Cross-directory duplicate comparison
 ├── types.rs         # Shared types (FileEntry, DuplicateGroup, etc.)
-├── output.rs        # Output formatting (text, JSON, CSV)
+├── output.rs        # Output formatting (text, JSON, CSV) + summary stats
 └── error.rs         # Error types
 ```
 
@@ -185,6 +230,10 @@ This is a two-phase approach for best performance:
 3. **Full hash** — hash the entire file for remaining candidates
 
 This avoids reading entire files when a quick check can rule out matches.
+
+### Memory-Mapped I/O
+
+For byte-for-byte comparison of large files, use memory-mapped I/O (`memmap2` crate) to avoid loading entire files into memory.
 
 ### Hash Cache
 
@@ -237,6 +286,29 @@ If any of these differ, the cached entry is stale — the file is rehashed and t
 - File hashing uses `rayon` thread pool for parallel computation
 - The number of worker threads is configurable via `--jobs`
 
+### Output Summary
+
+Every run prints a summary at the end:
+- Total files scanned
+- Duplicate groups found
+- Total duplicate files
+- Total wasted space
+- Space that would be / was recovered
+
+### Action History
+
+Destructive operations (`delete`, `hardlink`, `symlink`) log every action to `~/.rsdedup/history.log` with timestamps. The `rsdedup undo` subcommand can reverse the last destructive operation using this log.
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success, no duplicates found |
+| `1` | Success, duplicates found |
+| `2` | Error |
+
+This makes rsdedup scriptable (e.g. `rsdedup report && echo "clean"`).
+
 ## Dependencies
 
 | Crate | Purpose |
@@ -253,6 +325,11 @@ If any of these differ, the cached entry is stale — the file is rehashed and t
 | `bincode` | Fast serialization for cache entries |
 | `anyhow` | Error handling |
 | `indicatif` | Progress bars |
+| `memmap2` | Memory-mapped I/O for large file comparison |
+| `globset` | Glob pattern matching for include/exclude |
+| `ratatui` | TUI framework for interactive mode |
+| `crossterm` | Terminal backend for ratatui |
+| `chrono` | Timestamps for history log |
 
 ## Safety
 
@@ -261,3 +338,7 @@ If any of these differ, the cached entry is stale — the file is rehashed and t
 - **Delete action requires `--keep`** strategy to be explicit about which file survives
 - **No cross-filesystem hardlinks** — detected and reported as errors
 - **Symlink loops** are avoided by not following symlinks by default
+- **Protected directories** — refuses to operate on system directories (`/`, `/usr`, `/etc`, `/bin`) unless `--force` is passed
+- **Lock file** — `~/.rsdedup/lock` prevents concurrent destructive runs
+- **Checksum verification** — after hardlink/symlink, optionally verify content integrity with `--verify`
+- **Undo support** — destructive operations are logged and can be reversed with `rsdedup undo`

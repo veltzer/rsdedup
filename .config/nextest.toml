@@ -1,0 +1,7 @@
+[profile.default]
+# Number of threads to run tests with
+test-threads = 4
+
+# Only show failing tests in output
+status-level = "fail"
+final-status-level = "fail"

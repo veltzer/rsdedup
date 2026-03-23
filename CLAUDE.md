@@ -28,12 +28,12 @@ See `DESIGN.md` for the full design document.
 - `src/cache.rs` — Persistent hash cache using `sled` at `~/.rsdedup/cache.db`
 - `src/action.rs` — Actions: report, hardlink, symlink, delete
 - `src/types.rs` — Shared types (FileEntry, DuplicateGroup, etc.)
-- `src/output.rs` — Output formatting (text, JSON, CSV)
+- `src/output.rs` — Output formatting (text, JSON)
 - `src/error.rs` — Error types
 
 ### Subcommands
 
-`report`, `delete`, `hardlink`, `symlink`, `scan`, `cache`
+`report`, `delete`, `hardlink`, `symlink`, `scan`, `cache`, `completions`
 
 All scan subcommands default to the current directory.
 

@@ -1,0 +1,28 @@
+[package]
+name = "rsdedup"
+version = "0.1.0"
+edition = "2024"
+authors = ["Mark Veltzer <mark.veltzer@gmail.com>"]
+description = "A fast file deduplication tool"
+license = "MIT"
+repository = "https://github.com/veltzer/rsdedup"
+
+[dependencies]
+anyhow = "1"
+bincode = "1"
+blake3 = "1"
+clap = { version = "4", features = ["derive"] }
+clap_complete = "4"
+globset = "0.4"
+rayon = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+sled = "0.34"
+walkdir = "2"
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
