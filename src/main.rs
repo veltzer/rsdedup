@@ -309,12 +309,18 @@ fn main() {
         }
         Commands::Scan { path } => {
             let (_, total_files) = run_pipeline(path, &cli)?;
+            if !cli.no_cache
+                && let Ok(c) = HashCache::open()
+            {
+                eprintln!("cache location: {}", c.path().display());
+            }
             eprintln!("scanned and cached hashes for {total_files} files");
             Ok(error::EXIT_NO_DUPES)
         }
         Commands::Cache { action } => match action {
             CacheAction::Clear => {
                 let cache = HashCache::open()?;
+                eprintln!("cache location: {}", cache.path().display());
                 cache.clear()?;
                 eprintln!("cache cleared");
                 Ok(error::EXIT_NO_DUPES)
@@ -322,6 +328,7 @@ fn main() {
             CacheAction::Stats => {
                 let cache = HashCache::open()?;
                 let (count, size) = cache.stats()?;
+                println!("cache location: {}", cache.path().display());
                 println!("cache entries: {count}");
                 println!("cache size on disk: {size} bytes");
                 Ok(error::EXIT_NO_DUPES)

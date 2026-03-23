@@ -7,6 +7,7 @@ use crate::types::{CacheEntry, HashAlgo};
 
 pub struct HashCache {
     db: sled::Db,
+    db_path: PathBuf,
 }
 
 fn cache_dir() -> PathBuf {
@@ -26,7 +27,7 @@ impl HashCache {
         let db_path = dir.join("cache.db");
         let db = sled::open(&db_path)
             .with_context(|| format!("failed to open cache db: {}", db_path.display()))?;
-        Ok(Self { db })
+        Ok(Self { db, db_path })
     }
 
     pub fn lookup(
@@ -101,6 +102,10 @@ impl HashCache {
         let count = self.db.len() as u64;
         let size = self.db.size_on_disk()?;
         Ok((count, size))
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.db_path
     }
 
     pub fn flush(&self) -> Result<()> {
