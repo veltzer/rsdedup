@@ -18,6 +18,10 @@ clean:
 artifacts:
 	@gh release view --json assets --jq '.assets[] | "\(.name)\t\(.size)\t\(.downloadCount)"' | column -t -N NAME,SIZE,DOWNLOADS
 
+.PHONY: publish
+publish:
+	cargo publish
+
 # Release: bump patch version, commit, tag, and push to trigger CI release
 # Usage:
 #   make release           - bump patch (0.1.0 -> 0.1.1)
