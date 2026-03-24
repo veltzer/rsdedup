@@ -157,6 +157,41 @@ fn num_cpus() -> usize {
         .unwrap_or(1)
 }
 
+fn format_size(bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = 1024 * KB;
+    const GB: u64 = 1024 * MB;
+    if bytes >= GB {
+        format!("{:.2} GB ({bytes} bytes)", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.2} MB ({bytes} bytes)", bytes as f64 / MB as f64)
+    } else if bytes >= KB {
+        format!("{:.2} KB ({bytes} bytes)", bytes as f64 / KB as f64)
+    } else {
+        format!("{bytes} bytes")
+    }
+}
+
+fn format_timestamp(epoch_secs: u64) -> String {
+    use std::time::{Duration, UNIX_EPOCH};
+    let time = UNIX_EPOCH + Duration::from_secs(epoch_secs);
+    match time.elapsed() {
+        Ok(ago) => {
+            let secs = ago.as_secs();
+            if secs < 60 {
+                format!("{secs}s ago")
+            } else if secs < 3600 {
+                format!("{}m ago", secs / 60)
+            } else if secs < 86400 {
+                format!("{}h ago", secs / 3600)
+            } else {
+                format!("{}d ago", secs / 86400)
+            }
+        }
+        Err(_) => "in the future".to_string(),
+    }
+}
+
 fn run_pipeline(path: &std::path::Path, cli: &Cli) -> Result<(Vec<DuplicateGroup>, u64)> {
     let scan_opts = ScanOptions {
         recursive: cli.recursive && !cli.no_recursive,
@@ -396,10 +431,28 @@ fn main() {
             }
             CacheAction::Stats => {
                 let cache = HashCache::open()?;
-                let (count, size) = cache.stats()?;
-                println!("cache location: {}", cache.path().display());
-                println!("cache entries: {count}");
-                println!("cache size on disk: {size} bytes");
+                let stats = cache.stats()?;
+                println!("cache location:     {}", cache.path().display());
+                println!("total entries:       {}", stats.entries);
+                println!("database size:       {}", format_size(stats.db_size));
+                println!("total file size:     {}", format_size(stats.total_file_size));
+                println!("with partial hash:   {}", stats.with_partial);
+                println!("with full hash:      {}", stats.with_full);
+                println!("stale (file gone):   {}", stats.stale);
+                if let Some(oldest) = stats.oldest_timestamp {
+                    println!("oldest entry:        {}", format_timestamp(oldest));
+                }
+                if let Some(newest) = stats.newest_timestamp {
+                    println!("newest entry:        {}", format_timestamp(newest));
+                }
+                if !stats.algo_counts.is_empty() {
+                    println!("hash algorithms:");
+                    let mut algos: Vec<_> = stats.algo_counts.iter().collect();
+                    algos.sort_by(|a, b| b.1.cmp(a.1));
+                    for (algo, count) in algos {
+                        println!("  {algo}: {count}");
+                    }
+                }
                 Ok(error::EXIT_NO_DUPES)
             }
         },

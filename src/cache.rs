@@ -5,6 +5,18 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::types::{CacheEntry, HashAlgo};
 
+pub struct CacheStats {
+    pub entries: u64,
+    pub db_size: u64,
+    pub total_file_size: u64,
+    pub with_partial: u64,
+    pub with_full: u64,
+    pub stale: u64,
+    pub oldest_timestamp: Option<u64>,
+    pub newest_timestamp: Option<u64>,
+    pub algo_counts: std::collections::HashMap<String, u64>,
+}
+
 pub struct HashCache {
     db: sled::Db,
     db_path: PathBuf,
@@ -98,10 +110,62 @@ impl HashCache {
         Ok(())
     }
 
-    pub fn stats(&self) -> Result<(u64, u64)> {
+    pub fn stats(&self) -> Result<CacheStats> {
         let count = self.db.len() as u64;
         let size = self.db.size_on_disk()?;
-        Ok((count, size))
+
+        let mut algo_counts: std::collections::HashMap<String, u64> =
+            std::collections::HashMap::new();
+        let mut oldest: Option<u64> = None;
+        let mut newest: Option<u64> = None;
+        let mut total_file_size: u64 = 0;
+        let mut with_partial: u64 = 0;
+        let mut with_full: u64 = 0;
+        let mut stale: u64 = 0;
+
+        for item in self.db.iter() {
+            let (key, value) = match item {
+                Ok(kv) => kv,
+                Err(_) => continue,
+            };
+
+            let entry: CacheEntry = match bincode::deserialize(&value) {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
+
+            *algo_counts.entry(entry.hash_algo.clone()).or_default() += 1;
+            total_file_size += entry.size;
+
+            if entry.partial_hash.is_some() {
+                with_partial += 1;
+            }
+            if entry.full_hash.is_some() {
+                with_full += 1;
+            }
+
+            let ts = entry.cached_at;
+            oldest = Some(oldest.map_or(ts, |o: u64| o.min(ts)));
+            newest = Some(newest.map_or(ts, |n: u64| n.max(ts)));
+
+            // Check if the file still exists
+            let path = String::from_utf8_lossy(&key);
+            if !std::path::Path::new(path.as_ref()).exists() {
+                stale += 1;
+            }
+        }
+
+        Ok(CacheStats {
+            entries: count,
+            db_size: size,
+            total_file_size,
+            with_partial,
+            with_full,
+            stale,
+            oldest_timestamp: oldest,
+            newest_timestamp: newest,
+            algo_counts,
+        })
     }
 
     pub fn path(&self) -> &Path {

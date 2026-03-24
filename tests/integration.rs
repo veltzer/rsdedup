@@ -190,7 +190,7 @@ fn scan_populates_cache() {
 
     assert!(output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("scanned and cached"));
+    assert!(stderr.contains("scanned 1 files"));
 }
 
 #[test]
