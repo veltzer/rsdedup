@@ -107,6 +107,28 @@ impl Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Find and act on duplicate files
+    Dedup {
+        #[command(subcommand)]
+        action: DedupAction,
+    },
+    /// Manage the hash cache
+    Cache {
+        #[command(subcommand)]
+        action: CacheAction,
+    },
+    /// Show version and build information
+    Version,
+    /// Generate shell completions
+    Completions {
+        /// Shell to generate completions for
+        #[arg(value_enum)]
+        shell: Shell,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum DedupAction {
     /// Find and report duplicate files (read-only)
     Report {
         /// Directory to scan
@@ -143,29 +165,16 @@ pub enum Commands {
         #[arg(short = 'n', long, default_value_t = false)]
         dry_run: bool,
     },
-    /// Scan and populate the hash cache without dedup
+}
+
+#[derive(Subcommand)]
+pub enum CacheAction {
+    /// Scan and populate the hash cache
     Scan {
         /// Directory to scan
         #[arg(default_value = ".")]
         path: PathBuf,
     },
-    /// Manage the hash cache
-    Cache {
-        #[command(subcommand)]
-        action: CacheAction,
-    },
-    /// Show version and build information
-    Version,
-    /// Generate shell completions
-    Completions {
-        /// Shell to generate completions for
-        #[arg(value_enum)]
-        shell: Shell,
-    },
-}
-
-#[derive(Subcommand)]
-pub enum CacheAction {
     /// Clear the hash cache
     Clear,
     /// Show cache statistics

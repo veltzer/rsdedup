@@ -26,7 +26,7 @@ fn report_no_duplicates() {
     write_file(dir.path(), "b.txt", "world");
 
     let output = rsdedup_bin()
-        .args(["report", "--no-cache"])
+        .args(["dedup", "report", "--no-cache"])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -44,7 +44,7 @@ fn report_finds_duplicates() {
     write_file(dir.path(), "c.txt", "unique content");
 
     let output = rsdedup_bin()
-        .args(["report", "--no-cache"])
+        .args(["dedup", "report", "--no-cache"])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -68,7 +68,7 @@ fn report_json_output() {
     write_file(dir.path(), "b.txt", "same");
 
     let output = rsdedup_bin()
-        .args(["report", "--no-cache", "--output", "json"])
+        .args(["dedup", "report", "--no-cache", "--output", "json"])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -86,7 +86,7 @@ fn delete_dry_run_does_not_remove_files() {
     write_file(dir.path(), "b.txt", "dup");
 
     let output = rsdedup_bin()
-        .args(["delete", "--no-cache", "--dry-run"])
+        .args(["dedup", "delete", "--no-cache", "--dry-run"])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -105,7 +105,7 @@ fn delete_removes_duplicates() {
     write_file(dir.path(), "unique.txt", "not a dup");
 
     let output = rsdedup_bin()
-        .args(["delete", "--no-cache", "--keep", "first"])
+        .args(["dedup", "delete", "--no-cache", "--keep", "first"])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -128,7 +128,7 @@ fn hardlink_dry_run() {
     write_file(dir.path(), "b.txt", "hardlink me");
 
     let output = rsdedup_bin()
-        .args(["hardlink", "--no-cache", "--dry-run"])
+        .args(["dedup", "hardlink", "--no-cache", "--dry-run"])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -148,7 +148,7 @@ fn hardlink_creates_hardlinks() {
     write_file(dir.path(), "b.txt", "link this content");
 
     rsdedup_bin()
-        .args(["hardlink", "--no-cache"])
+        .args(["dedup", "hardlink", "--no-cache"])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -168,7 +168,7 @@ fn symlink_creates_symlinks() {
     write_file(dir.path(), "b.txt", "symlink this");
 
     rsdedup_bin()
-        .args(["symlink", "--no-cache"])
+        .args(["dedup", "symlink", "--no-cache"])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -193,7 +193,7 @@ fn scan_populates_cache() {
     write_file(dir.path(), "a.txt", "cache me");
 
     let output = rsdedup_bin()
-        .args(["scan"])
+        .args(["cache", "scan"])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -212,7 +212,7 @@ fn min_size_filter() {
     write_file(dir.path(), "big2.txt", "this is bigger content");
 
     let output = rsdedup_bin()
-        .args(["report", "--no-cache", "--min-size", "10"])
+        .args(["dedup", "report", "--no-cache", "--min-size", "10"])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -231,7 +231,7 @@ fn max_size_filter() {
     write_file(dir.path(), "big2.txt", "this is bigger content");
 
     let output = rsdedup_bin()
-        .args(["report", "--no-cache", "--max-size", "10"])
+        .args(["dedup", "report", "--no-cache", "--max-size", "10"])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -250,7 +250,7 @@ fn exclude_filter() {
     write_file(dir.path(), "b.log", "dup");
 
     let output = rsdedup_bin()
-        .args(["report", "--no-cache", "--exclude", "*.log"])
+        .args(["dedup", "report", "--no-cache", "--exclude", "*.log"])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -269,7 +269,7 @@ fn include_filter() {
     write_file(dir.path(), "b.log", "dup");
 
     let output = rsdedup_bin()
-        .args(["report", "--no-cache", "--include", "*.log"])
+        .args(["dedup", "report", "--no-cache", "--include", "*.log"])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -286,7 +286,7 @@ fn compare_byte_for_byte() {
     write_file(dir.path(), "b.txt", "same bytes");
 
     let output = rsdedup_bin()
-        .args(["report", "--no-cache", "--compare", "byte-for-byte"])
+        .args(["dedup", "report", "--no-cache", "--compare", "byte-for-byte"])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -303,7 +303,7 @@ fn compare_hash_only() {
     write_file(dir.path(), "b.txt", "hash me");
 
     let output = rsdedup_bin()
-        .args(["report", "--no-cache", "--compare", "hash"])
+        .args(["dedup", "report", "--no-cache", "--compare", "hash"])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -320,7 +320,7 @@ fn hash_algo_blake3() {
     write_file(dir.path(), "b.txt", "blake3 test");
 
     let output = rsdedup_bin()
-        .args(["report", "--no-cache", "--hash", "blake3"])
+        .args(["dedup", "report", "--no-cache", "--hash", "blake3"])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -335,7 +335,7 @@ fn hash_algo_xxhash() {
     write_file(dir.path(), "b.txt", "xxhash test");
 
     let output = rsdedup_bin()
-        .args(["report", "--no-cache", "--hash", "xxhash"])
+        .args(["dedup", "report", "--no-cache", "--hash", "xxhash"])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -373,7 +373,7 @@ fn subdirectory_duplicates() {
     write_file(dir.path(), "b/file.txt", "nested dup");
 
     let output = rsdedup_bin()
-        .args(["report", "--no-cache"])
+        .args(["dedup", "report", "--no-cache"])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -390,7 +390,7 @@ fn no_recursive_flag() {
     write_file(dir.path(), "sub/nested.txt", "dup");
 
     let output = rsdedup_bin()
-        .args(["report", "--no-cache", "--no-recursive"])
+        .args(["dedup", "report", "--no-cache", "--no-recursive"])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -407,7 +407,7 @@ fn empty_directory() {
     let dir = create_test_dir();
 
     let output = rsdedup_bin()
-        .args(["report", "--no-cache"])
+        .args(["dedup", "report", "--no-cache"])
         .arg(dir.path())
         .output()
         .unwrap();
