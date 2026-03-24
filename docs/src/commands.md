@@ -13,7 +13,7 @@ rsdedup <command> <subcommand> [options] [path]
 | `dedup` | Find and act on duplicate files |
 | `cache` | Manage the hash cache |
 | `version` | Show version and build information |
-| `completions` | Generate shell completions |
+| `complete` | Generate shell completions |
 
 ## Global options
 

@@ -1,5 +1,17 @@
 # Design
 
+## Overview
+
+`rsdedup` is a fast, Rust-based file deduplication tool. It scans directories for duplicate files and supports multiple actions: reporting, hardlinking/symlinking, and deleting duplicates (keeping one copy).
+
+## Goals
+
+- Fast duplicate detection across large directory trees
+- Multiple comparison strategies (hash-based, size+hash, byte-for-byte)
+- Multiple actions on duplicates (report, hardlink, symlink, delete)
+- Safe defaults — report-only unless explicitly told to modify files
+- Parallel file hashing for performance
+
 ## Pipeline Architecture
 
 rsdedup processes files through a multi-stage pipeline where each stage reduces the candidate set:
@@ -29,15 +41,66 @@ src/
 └── error.rs      — Exit codes
 ```
 
+## Key Types
+
+```rust
+struct FileEntry {
+    path: PathBuf,
+    size: u64,
+    metadata: Metadata,
+}
+
+struct DuplicateGroup {
+    size: u64,
+    hash: String,
+    files: Vec<FileEntry>,
+}
+
+enum CompareMethod {
+    SizeHash,
+    Hash,
+    ByteForByte,
+}
+
+enum KeepStrategy {
+    First,
+    Newest,
+    Oldest,
+    ShortestPath,
+}
+```
+
 ## Parallelism
 
 - Directory walking is single-threaded (I/O bound, using `walkdir`)
-- File hashing uses a `rayon` thread pool for parallel computation
-- Thread count is configurable via `--jobs`
+- File comparison uses a `rayon` thread pool — size groups are processed in parallel
+- Within a single size group, files are hashed and compared sequentially
+- Thread count is configurable via `--jobs` (defaults to CPU core count)
+
+See the [Parallelism](parallelism.md) chapter for details on controlling thread count and when parallelism helps most.
 
 ## Cache Design
 
-The hash cache uses `sled`, an embedded key-value store. Each entry maps a file path to its metadata (size, mtime, inode) and hash values (partial and full). Cache entries are invalidated when any metadata field changes. The cache merges partial and full hashes — computing one doesn't overwrite the other.
+The hash cache uses `sled`, an embedded key-value store at `~/.rsdedup/cache.db`. Each entry maps a file path to its metadata (size, mtime, inode) and hash values (partial and full). Cache entries are invalidated when any metadata field changes. The cache merges partial and full hashes — computing one doesn't overwrite the other.
+
+See the [Hash Cache](cache.md) chapter for details.
+
+## Safety
+
+- **Default action is report-only** — no files are modified unless explicitly requested
+- **`--dry-run`** shows what would happen without making changes
+- **No cross-filesystem hardlinks** — detected and reported as errors
+- **Symlink loops** are avoided by not following symlinks by default
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success, no duplicates found |
+| `1` | Success, duplicates found |
+| `2` | Error |
+
+This makes rsdedup scriptable (e.g. `rsdedup report && echo "clean"`).
 
 ## Dependencies
 

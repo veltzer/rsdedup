@@ -16,7 +16,7 @@ cargo fmt -- --check
 
 Pipeline-based: scan → group by size → filter → compare (hash) → act.
 
-See `DESIGN.md` for the full design document.
+See `docs/src/design.md` for the full design document.
 
 ### Module Layout
 
