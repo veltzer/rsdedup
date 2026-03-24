@@ -41,6 +41,7 @@ pub enum CompareMethod {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum KeepStrategy {
+    Interactive,
     First,
     Newest,
     Oldest,

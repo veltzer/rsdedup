@@ -86,7 +86,7 @@ fn delete_dry_run_does_not_remove_files() {
     write_file(dir.path(), "b.txt", "dup");
 
     let output = rsdedup_bin()
-        .args(["dedup", "delete", "--no-cache", "--dry-run"])
+        .args(["dedup", "delete", "--no-cache", "--dry-run", "--keep", "first"])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -824,6 +824,8 @@ fn delete_json_output() {
             "delete",
             "--no-cache",
             "--dry-run",
+            "--keep",
+            "first",
             "--output",
             "json",
         ])

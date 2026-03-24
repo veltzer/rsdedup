@@ -140,8 +140,8 @@ pub enum DedupAction {
         /// Directory to scan
         #[arg(default_value = ".")]
         path: PathBuf,
-        /// Which file to keep
-        #[arg(long, value_enum, default_value_t = KeepStrategy::First)]
+        /// Which file to keep (interactive prompts for each group)
+        #[arg(long, value_enum, default_value_t = KeepStrategy::Interactive)]
         keep: KeepStrategy,
         /// Show what would be done without making changes
         #[arg(short = 'n', long, default_value_t = false)]
