@@ -71,6 +71,10 @@ struct Cli {
     #[arg(long, default_value_t = false, global = true)]
     no_cache: bool,
 
+    /// Disable timing output
+    #[arg(long, default_value_t = false, global = true)]
+    no_timing: bool,
+
     /// Exclude files matching glob pattern (can be repeated)
     #[arg(long, global = true)]
     exclude: Vec<String>,
@@ -308,13 +312,78 @@ fn main() {
             })
         }
         Commands::Scan { path } => {
-            let (_, total_files) = run_pipeline(path, &cli)?;
-            if !cli.no_cache
-                && let Ok(c) = HashCache::open()
-            {
+            let start = std::time::Instant::now();
+            let scan_opts = ScanOptions {
+                recursive: cli.recursive && !cli.no_recursive,
+                follow_symlinks: cli.follow_symlinks,
+                min_size: cli.min_size,
+                max_size: cli.max_size,
+                include: cli.include.clone(),
+                exclude: cli.exclude.clone(),
+            };
+
+            if cli.verbose {
+                eprintln!("scanning {}...", path.display());
+            }
+
+            let entries = scan(path, &scan_opts)?;
+            let total_files = entries.len() as u64;
+
+            let cache = if cli.no_cache {
+                None
+            } else {
+                HashCache::open().ok()
+            };
+
+            if let Some(ref c) = cache {
                 eprintln!("cache location: {}", c.path().display());
             }
-            eprintln!("scanned and cached hashes for {total_files} files");
+
+            // Hash every file, using cache for files that haven't changed
+            let mut cached = 0u64;
+            let mut hashed = 0u64;
+            for entry in &entries {
+                let already_cached = cache
+                    .as_ref()
+                    .and_then(|c| c.lookup(&entry.path, cli.hash, &entry.metadata))
+                    .and_then(|e| e.full_hash)
+                    .is_some();
+
+                if already_cached {
+                    cached += 1;
+                    continue;
+                }
+
+                match crate::hasher::hash_file(&entry.path, cli.hash, false) {
+                    Ok(hash) => {
+                        if let Some(ref c) = cache {
+                            let _ = c.store(
+                                &entry.path,
+                                cli.hash,
+                                &entry.metadata,
+                                None,
+                                Some(&hash),
+                            );
+                        }
+                        hashed += 1;
+                    }
+                    Err(err) => {
+                        eprintln!("warning: failed to hash {}: {err}", entry.path.display());
+                    }
+                }
+            }
+
+            if let Some(ref c) = cache {
+                let _ = c.flush();
+            }
+
+            eprintln!(
+                "scanned {total_files} files: {hashed} hashed, {cached} already cached"
+            );
+            if !cli.no_timing {
+                let elapsed = start.elapsed();
+                eprintln!("elapsed: {:.3}s", elapsed.as_secs_f64());
+            }
             Ok(error::EXIT_NO_DUPES)
         }
         Commands::Cache { action } => match action {
