@@ -357,7 +357,7 @@ fn version_subcommand() {
 #[test]
 fn completions_subcommand() {
     let output = rsdedup_bin()
-        .args(["completions", "bash"])
+        .args(["complete", "bash"])
         .output()
         .unwrap();
 
