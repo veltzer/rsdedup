@@ -4,3 +4,6 @@
   fatal runtime error: stack overflow, aborting
   Aborted (core dumped)
 
+- entries in the cache must be full path and not relative path since rsdedup can be run from
+  different folders.
+
