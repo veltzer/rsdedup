@@ -1,5 +1,6 @@
 mod action;
 mod cache;
+mod cli;
 mod compare;
 mod error;
 mod grouper;
@@ -9,153 +10,14 @@ mod scanner;
 mod types;
 
 use anyhow::Result;
-use clap::{CommandFactory, Parser, Subcommand};
-use clap_complete::{generate, Shell};
-use std::io;
-use std::path::PathBuf;
-
 use cache::HashCache;
+use clap::Parser;
+use cli::{CacheAction, Cli, Commands};
 use compare::find_duplicates;
 use grouper::group_by_size;
 use output::{print_groups, print_summary};
-use scanner::{scan, ScanOptions};
+use scanner::{ScanOptions, scan};
 use types::*;
-
-#[derive(Parser)]
-#[command(name = "rsdedup", version, about = "A fast file deduplication tool")]
-struct Cli {
-    #[command(subcommand)]
-    command: Option<Commands>,
-
-    /// Comparison method
-    #[arg(long, value_enum, default_value_t = CompareMethod::SizeHash, global = true)]
-    compare: CompareMethod,
-
-    /// Hash algorithm
-    #[arg(long, value_enum, default_value_t = HashAlgo::Sha256, global = true)]
-    hash: HashAlgo,
-
-    /// Minimum file size to consider
-    #[arg(long, global = true)]
-    min_size: Option<u64>,
-
-    /// Maximum file size to consider
-    #[arg(long, global = true)]
-    max_size: Option<u64>,
-
-    /// Recurse into subdirectories
-    #[arg(short, long, default_value_t = true, global = true)]
-    recursive: bool,
-
-    /// Do not recurse into subdirectories
-    #[arg(long, global = true)]
-    no_recursive: bool,
-
-    /// Follow symbolic links
-    #[arg(long, default_value_t = false, global = true)]
-    follow_symlinks: bool,
-
-    /// Verbose output
-    #[arg(short, long, default_value_t = false, global = true)]
-    verbose: bool,
-
-    /// Output format
-    #[arg(long, value_enum, default_value_t = OutputFormat::Text, global = true)]
-    output: OutputFormat,
-
-    /// Number of parallel workers
-    #[arg(short, long, default_value_t = num_cpus(), global = true)]
-    jobs: usize,
-
-    /// Disable the hash cache
-    #[arg(long, default_value_t = false, global = true)]
-    no_cache: bool,
-
-    /// Disable timing output
-    #[arg(long, default_value_t = false, global = true)]
-    no_timing: bool,
-
-    /// Exclude files matching glob pattern (can be repeated)
-    #[arg(long, global = true)]
-    exclude: Vec<String>,
-
-    /// Only include files matching glob pattern (can be repeated)
-    #[arg(long, global = true)]
-    include: Vec<String>,
-}
-
-#[derive(Subcommand)]
-enum Commands {
-    /// Find and report duplicate files (read-only)
-    Report {
-        /// Directory to scan
-        #[arg(default_value = ".")]
-        path: PathBuf,
-    },
-    /// Delete duplicate files, keeping one copy per group
-    Delete {
-        /// Directory to scan
-        #[arg(default_value = ".")]
-        path: PathBuf,
-        /// Which file to keep
-        #[arg(long, value_enum, default_value_t = KeepStrategy::First)]
-        keep: KeepStrategy,
-        /// Show what would be done without making changes
-        #[arg(short = 'n', long, default_value_t = false)]
-        dry_run: bool,
-    },
-    /// Replace duplicates with hardlinks
-    Hardlink {
-        /// Directory to scan
-        #[arg(default_value = ".")]
-        path: PathBuf,
-        /// Show what would be done without making changes
-        #[arg(short = 'n', long, default_value_t = false)]
-        dry_run: bool,
-    },
-    /// Replace duplicates with symlinks
-    Symlink {
-        /// Directory to scan
-        #[arg(default_value = ".")]
-        path: PathBuf,
-        /// Show what would be done without making changes
-        #[arg(short = 'n', long, default_value_t = false)]
-        dry_run: bool,
-    },
-    /// Scan and populate the hash cache without dedup
-    Scan {
-        /// Directory to scan
-        #[arg(default_value = ".")]
-        path: PathBuf,
-    },
-    /// Manage the hash cache
-    Cache {
-        #[command(subcommand)]
-        action: CacheAction,
-    },
-    /// Show version and build information
-    Version,
-    /// Generate shell completions
-    Completions {
-        /// Shell to generate completions for
-        #[arg(value_enum)]
-        shell: Shell,
-    },
-}
-
-#[derive(Subcommand)]
-enum CacheAction {
-    /// Clear the hash cache
-    Clear,
-    /// Show cache statistics
-    Stats,
-}
-
-fn num_cpus() -> usize {
-    std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(1)
-}
 
 fn format_size(bytes: u64) -> String {
     const KB: u64 = 1024;
@@ -243,17 +105,7 @@ fn main() {
     let command = match cli.command {
         Some(ref cmd) => cmd,
         None => {
-            println!("rsdedup — A fast file deduplication tool\n");
-            println!("Commands:");
-            println!("  report       Find and report duplicate files (read-only)");
-            println!("  delete       Delete duplicate files, keeping one copy per group");
-            println!("  hardlink     Replace duplicates with hardlinks");
-            println!("  symlink      Replace duplicates with symlinks");
-            println!("  scan         Scan and populate the hash cache without dedup");
-            println!("  cache        Manage the hash cache");
-            println!("  version      Show version and build information");
-            println!("  completions  Generate shell completions");
-            println!("\nRun 'rsdedup <command> --help' for more information on a command.");
+            Cli::print_short_help();
             error::exit_with(error::EXIT_NO_DUPES);
         }
     };
@@ -409,16 +261,24 @@ fn main() {
                     continue;
                 }
 
-                let partial = if existing.as_ref().and_then(|e| e.partial_hash.as_ref()).is_some() {
+                let partial = if existing
+                    .as_ref()
+                    .and_then(|e| e.partial_hash.as_ref())
+                    .is_some()
+                {
                     None
                 } else {
-                    crate::hasher::hash_file(&entry.path, cli.hash, true).ok()
+                    hasher::hash_file(&entry.path, cli.hash, true).ok()
                 };
 
-                let full = if existing.as_ref().and_then(|e| e.full_hash.as_ref()).is_some() {
+                let full = if existing
+                    .as_ref()
+                    .and_then(|e| e.full_hash.as_ref())
+                    .is_some()
+                {
                     None
                 } else {
-                    crate::hasher::hash_file(&entry.path, cli.hash, false).ok()
+                    hasher::hash_file(&entry.path, cli.hash, false).ok()
                 };
 
                 if partial.is_some() || full.is_some() {
@@ -441,9 +301,7 @@ fn main() {
                 let _ = c.flush();
             }
 
-            eprintln!(
-                "scanned {total_files} files: {hashed} hashed, {cached} already cached"
-            );
+            eprintln!("scanned {total_files} files: {hashed} hashed, {cached} already cached");
             if !cli.no_timing {
                 let elapsed = start.elapsed();
                 eprintln!("elapsed: {:.3}s", elapsed.as_secs_f64());
@@ -464,7 +322,10 @@ fn main() {
                 println!("cache location:     {}", cache.path().display());
                 println!("total entries:       {}", stats.entries);
                 println!("database size:       {}", format_size(stats.db_size));
-                println!("total file size:     {}", format_size(stats.total_file_size));
+                println!(
+                    "total file size:     {}",
+                    format_size(stats.total_file_size)
+                );
                 println!("with partial hash:   {}", stats.with_partial);
                 println!("with full hash:      {}", stats.with_full);
                 println!("stale (file gone):   {}", stats.stale);
@@ -486,7 +347,11 @@ fn main() {
             }
         },
         Commands::Version => {
-            println!("rsdedup {} by {}", env!("CARGO_PKG_VERSION"), env!("CARGO_PKG_AUTHORS"));
+            println!(
+                "rsdedup {} by {}",
+                env!("CARGO_PKG_VERSION"),
+                env!("CARGO_PKG_AUTHORS")
+            );
             println!("GIT_DESCRIBE: {}", env!("GIT_DESCRIBE"));
             println!("GIT_SHA: {}", env!("GIT_SHA"));
             println!("GIT_BRANCH: {}", env!("GIT_BRANCH"));
@@ -497,8 +362,7 @@ fn main() {
             Ok(error::EXIT_NO_DUPES)
         }
         Commands::Completions { shell } => {
-            let mut cmd = Cli::command();
-            generate(*shell, &mut cmd, "rsdedup", &mut io::stdout());
+            cli::generate_completions(*shell);
             Ok(error::EXIT_NO_DUPES)
         }
     })();

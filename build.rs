@@ -28,10 +28,12 @@ fn main() {
 
     let edition = std::fs::read_to_string("Cargo.toml")
         .ok()
-        .and_then(|s| s.lines()
-            .find(|l| l.starts_with("edition"))
-            .and_then(|l| l.split('=').nth(1))
-            .map(|v| v.trim().trim_matches('"').to_owned()))
+        .and_then(|s| {
+            s.lines()
+                .find(|l| l.starts_with("edition"))
+                .and_then(|l| l.split('=').nth(1))
+                .map(|v| v.trim().trim_matches('"').to_owned())
+        })
         .unwrap_or_else(|| "unknown".to_owned());
     let is_dirty = Command::new("git")
         .args(["diff", "--quiet", "HEAD"])

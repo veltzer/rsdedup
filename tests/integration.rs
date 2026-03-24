@@ -49,7 +49,11 @@ fn report_finds_duplicates() {
         .output()
         .unwrap();
 
-    assert_eq!(output.status.code(), Some(1), "expected exit code 1 (dupes found)");
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "expected exit code 1 (dupes found)"
+    );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Duplicate groups: 1"));
     assert!(stdout.contains("Duplicate files:  1"));
@@ -151,7 +155,10 @@ fn hardlink_creates_hardlinks() {
 
     let ino_a = fs::metadata(dir.path().join("a.txt")).unwrap().ino();
     let ino_b = fs::metadata(dir.path().join("b.txt")).unwrap().ino();
-    assert_eq!(ino_a, ino_b, "files should share the same inode after hardlinking");
+    assert_eq!(
+        ino_a, ino_b,
+        "files should share the same inode after hardlinking"
+    );
 }
 
 #[test]
@@ -174,7 +181,10 @@ fn symlink_creates_symlinks() {
         .unwrap()
         .file_type()
         .is_symlink();
-    assert!(a_is_symlink || b_is_symlink, "at least one file should be a symlink");
+    assert!(
+        a_is_symlink || b_is_symlink,
+        "at least one file should be a symlink"
+    );
 }
 
 #[test]
@@ -386,7 +396,10 @@ fn no_recursive_flag() {
         .unwrap();
 
     // Only one file at top level, so no duplicates
-    assert!(output.status.success(), "expected exit code 0 (no dupes at top level)");
+    assert!(
+        output.status.success(),
+        "expected exit code 0 (no dupes at top level)"
+    );
 }
 
 #[test]

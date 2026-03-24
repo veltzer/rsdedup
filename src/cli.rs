@@ -1,5 +1,5 @@
-use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
-use clap_complete::{generate, Shell};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::{Shell, generate};
 use std::io;
 use std::path::PathBuf;
 
@@ -30,7 +30,13 @@ pub struct Cli {
     pub max_size: Option<u64>,
 
     /// Recurse into subdirectories
-    #[arg(short, long, default_value_t = true, global = true, hide_short_help = true)]
+    #[arg(
+        short,
+        long,
+        default_value_t = true,
+        global = true,
+        hide_short_help = true
+    )]
     pub recursive: bool,
 
     /// Do not recurse into subdirectories
@@ -42,7 +48,13 @@ pub struct Cli {
     pub follow_symlinks: bool,
 
     /// Verbose output
-    #[arg(short, long, default_value_t = false, global = true, hide_short_help = true)]
+    #[arg(
+        short,
+        long,
+        default_value_t = false,
+        global = true,
+        hide_short_help = true
+    )]
     pub verbose: bool,
 
     /// Output format
@@ -72,8 +84,12 @@ pub struct Cli {
 
 impl Cli {
     pub fn print_short_help() {
-        let mut cmd = Self::command();
-        println!("{} — {}\n", cmd.get_name(), cmd.get_about().unwrap_or_default());
+        let cmd = Self::command();
+        println!(
+            "{} — {}\n",
+            cmd.get_name(),
+            cmd.get_about().unwrap_or_default()
+        );
         println!("Commands:");
         for sub in cmd.get_subcommands() {
             if sub.get_name() == "help" {
