@@ -23,6 +23,7 @@ walkdir = "2"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 
 [dev-dependencies]
+filetime = "0.2"
 tempfile = "3"
 
 [profile.release]
