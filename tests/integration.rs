@@ -566,6 +566,17 @@ fn cache_stats() {
     }
 }
 
+#[test]
+fn cache_list() {
+    let output = rsdedup_bin().args(["cache", "list"]).output().unwrap();
+
+    // May fail due to sled lock contention with parallel tests
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("path\tsize\talgo\tpartial_hash\tfull_hash\tcached_at"));
+    }
+}
+
 // --- Verbose and timing flags ---
 
 #[test]

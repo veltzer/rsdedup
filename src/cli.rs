@@ -179,6 +179,8 @@ pub enum CacheAction {
     Clear,
     /// Show cache statistics
     Stats,
+    /// List all cache entries
+    List,
 }
 
 fn num_cpus() -> usize {

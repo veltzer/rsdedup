@@ -175,6 +175,15 @@ impl HashCache {
         })
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = (String, CacheEntry)> + '_ {
+        self.db.iter().filter_map(|item| {
+            let (key, value) = item.ok()?;
+            let path = String::from_utf8_lossy(&key).into_owned();
+            let entry: CacheEntry = bincode::deserialize(&value).ok()?;
+            Some((path, entry))
+        })
+    }
+
     pub fn path(&self) -> &Path {
         &self.db_path
     }

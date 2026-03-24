@@ -58,3 +58,35 @@ newest entry:        2m ago
 hash algorithms:
   sha256: 1234
 ```
+
+### list
+
+List all cache entries in tab-separated format, suitable for parsing with `awk`, `cut`, or other tools.
+
+```bash
+rsdedup cache list
+```
+
+Output columns:
+
+| Column | Description |
+|--------|-------------|
+| `path` | File path |
+| `size` | File size in bytes |
+| `algo` | Hash algorithm used |
+| `partial_hash` | Partial hash (first 4KB), empty if not computed |
+| `full_hash` | Full file hash, empty if not computed |
+| `cached_at` | Unix timestamp when the entry was cached |
+
+Example:
+
+```bash
+# List all cached files
+rsdedup cache list
+
+# Find entries for a specific directory
+rsdedup cache list | awk -F'\t' '$1 ~ /photos/'
+
+# Show only files with full hashes
+rsdedup cache list | awk -F'\t' '$5 != ""'
+```

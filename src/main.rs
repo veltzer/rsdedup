@@ -301,14 +301,14 @@ fn run_cache(action: &CacheAction, cli: &Cli) -> Result<i32> {
                 let elapsed = start.elapsed();
                 eprintln!("elapsed: {:.3}s", elapsed.as_secs_f64());
             }
-            Ok(error::EXIT_NO_DUPES)
+            Ok(error::EXIT_SUCCESS)
         }
         CacheAction::Clear => {
             let cache = HashCache::open()?;
             eprintln!("cache location: {}", cache.path().display());
             cache.clear()?;
             eprintln!("cache cleared");
-            Ok(error::EXIT_NO_DUPES)
+            Ok(error::EXIT_SUCCESS)
         }
         CacheAction::Stats => {
             let cache = HashCache::open()?;
@@ -337,7 +337,23 @@ fn run_cache(action: &CacheAction, cli: &Cli) -> Result<i32> {
                     println!("  {algo}: {count}");
                 }
             }
-            Ok(error::EXIT_NO_DUPES)
+            Ok(error::EXIT_SUCCESS)
+        }
+        CacheAction::List => {
+            let cache = HashCache::open()?;
+            println!("path\tsize\talgo\tpartial_hash\tfull_hash\tcached_at");
+            for (path, entry) in cache.iter() {
+                println!(
+                    "{}\t{}\t{}\t{}\t{}\t{}",
+                    path,
+                    entry.size,
+                    entry.hash_algo,
+                    entry.partial_hash.as_deref().unwrap_or(""),
+                    entry.full_hash.as_deref().unwrap_or(""),
+                    entry.cached_at,
+                );
+            }
+            Ok(error::EXIT_SUCCESS)
         }
     }
 }
@@ -349,7 +365,7 @@ fn main() {
         Some(ref cmd) => cmd,
         None => {
             Cli::print_short_help();
-            error::exit_with(error::EXIT_NO_DUPES);
+            error::exit_with(error::EXIT_SUCCESS);
         }
     };
 
@@ -369,11 +385,11 @@ fn main() {
             println!("RUSTC_SEMVER: {}", env!("RUSTC_SEMVER"));
             println!("RUST_EDITION: {}", env!("RUST_EDITION"));
             println!("BUILD_TIMESTAMP: {}", env!("BUILD_TIMESTAMP"));
-            Ok(error::EXIT_NO_DUPES)
+            Ok(error::EXIT_SUCCESS)
         }
         Commands::Complete { shell } => {
             cli::generate_completions(*shell);
-            Ok(error::EXIT_NO_DUPES)
+            Ok(error::EXIT_SUCCESS)
         }
     };
 
