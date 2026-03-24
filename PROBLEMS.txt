@@ -1,0 +1,6 @@
+- go to ~/insync/media/photos/ and run rsdedup a couple of times. In some of them it crashes with the following error:
+  $ rsdedup dedup delete
+  thread '<unknown>' (2371368) has overflowed its stack
+  fatal runtime error: stack overflow, aborting
+  Aborted (core dumped)
+
