@@ -87,14 +87,21 @@ impl HashCache {
             .unwrap_or_default()
             .as_secs();
 
+        // Merge with existing entry if the file hasn't changed
+        let existing = self.lookup(path, algo, metadata);
+
         let entry = CacheEntry {
             size: metadata.len(),
             mtime_secs: mtime.as_secs() as i64,
             mtime_nanos: mtime.subsec_nanos(),
             inode: metadata.ino(),
             hash_algo: algo_str(algo).to_string(),
-            partial_hash: partial_hash.map(|s| s.to_string()),
-            full_hash: full_hash.map(|s| s.to_string()),
+            partial_hash: partial_hash
+                .map(|s| s.to_string())
+                .or_else(|| existing.as_ref().and_then(|e| e.partial_hash.clone())),
+            full_hash: full_hash
+                .map(|s| s.to_string())
+                .or_else(|| existing.as_ref().and_then(|e| e.full_hash.clone())),
             cached_at: now,
         };
 

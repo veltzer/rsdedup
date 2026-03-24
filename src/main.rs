@@ -25,7 +25,7 @@ use types::*;
 #[command(name = "rsdedup", version, about = "A fast file deduplication tool")]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 
     /// Comparison method
     #[arg(long, value_enum, default_value_t = CompareMethod::SizeHash, global = true)]
@@ -240,7 +240,25 @@ fn run_pipeline(path: &std::path::Path, cli: &Cli) -> Result<(Vec<DuplicateGroup
 fn main() {
     let cli = Cli::parse();
 
-    let result: Result<i32> = (|| match &cli.command {
+    let command = match cli.command {
+        Some(ref cmd) => cmd,
+        None => {
+            println!("rsdedup — A fast file deduplication tool\n");
+            println!("Commands:");
+            println!("  report       Find and report duplicate files (read-only)");
+            println!("  delete       Delete duplicate files, keeping one copy per group");
+            println!("  hardlink     Replace duplicates with hardlinks");
+            println!("  symlink      Replace duplicates with symlinks");
+            println!("  scan         Scan and populate the hash cache without dedup");
+            println!("  cache        Manage the hash cache");
+            println!("  version      Show version and build information");
+            println!("  completions  Generate shell completions");
+            println!("\nRun 'rsdedup <command> --help' for more information on a command.");
+            error::exit_with(error::EXIT_NO_DUPES);
+        }
+    };
+
+    let result: Result<i32> = (|| match command {
         Commands::Report { path } => {
             let (groups, total_files) = run_pipeline(path, &cli)?;
             let has_dupes = !groups.is_empty();
@@ -374,37 +392,48 @@ fn main() {
                 eprintln!("cache location: {}", c.path().display());
             }
 
-            // Hash every file, using cache for files that haven't changed
+            // Hash every file (partial + full), using cache for files that haven't changed
             let mut cached = 0u64;
             let mut hashed = 0u64;
             for entry in &entries {
-                let already_cached = cache
+                let existing = cache
                     .as_ref()
-                    .and_then(|c| c.lookup(&entry.path, cli.hash, &entry.metadata))
-                    .and_then(|e| e.full_hash)
-                    .is_some();
+                    .and_then(|c| c.lookup(&entry.path, cli.hash, &entry.metadata));
 
-                if already_cached {
+                let has_both = existing
+                    .as_ref()
+                    .is_some_and(|e| e.partial_hash.is_some() && e.full_hash.is_some());
+
+                if has_both {
                     cached += 1;
                     continue;
                 }
 
-                match crate::hasher::hash_file(&entry.path, cli.hash, false) {
-                    Ok(hash) => {
-                        if let Some(ref c) = cache {
-                            let _ = c.store(
-                                &entry.path,
-                                cli.hash,
-                                &entry.metadata,
-                                None,
-                                Some(&hash),
-                            );
-                        }
-                        hashed += 1;
+                let partial = if existing.as_ref().and_then(|e| e.partial_hash.as_ref()).is_some() {
+                    None
+                } else {
+                    crate::hasher::hash_file(&entry.path, cli.hash, true).ok()
+                };
+
+                let full = if existing.as_ref().and_then(|e| e.full_hash.as_ref()).is_some() {
+                    None
+                } else {
+                    crate::hasher::hash_file(&entry.path, cli.hash, false).ok()
+                };
+
+                if partial.is_some() || full.is_some() {
+                    if let Some(ref c) = cache {
+                        let _ = c.store(
+                            &entry.path,
+                            cli.hash,
+                            &entry.metadata,
+                            partial.as_deref(),
+                            full.as_deref(),
+                        );
                     }
-                    Err(err) => {
-                        eprintln!("warning: failed to hash {}: {err}", entry.path.display());
-                    }
+                    hashed += 1;
+                } else if existing.is_none() {
+                    eprintln!("warning: failed to hash {}", entry.path.display());
                 }
             }
 
