@@ -33,7 +33,7 @@ See `DESIGN.md` for the full design document.
 
 ### Subcommands
 
-`report`, `delete`, `hardlink`, `symlink`, `scan`, `cache`, `completions`
+`report`, `delete`, `hardlink`, `symlink`, `scan`, `cache`, `complete`
 
 All scan subcommands default to the current directory.
 

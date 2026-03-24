@@ -371,7 +371,7 @@ fn main() {
             println!("BUILD_TIMESTAMP: {}", env!("BUILD_TIMESTAMP"));
             Ok(error::EXIT_NO_DUPES)
         }
-        Commands::Completions { shell } => {
+        Commands::Complete { shell } => {
             cli::generate_completions(*shell);
             Ok(error::EXIT_NO_DUPES)
         }

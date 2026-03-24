@@ -120,7 +120,7 @@ pub enum Commands {
     /// Show version and build information
     Version,
     /// Generate shell completions
-    Completions {
+    Complete {
         /// Shell to generate completions for
         #[arg(value_enum)]
         shell: Shell,
