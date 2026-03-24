@@ -59,6 +59,20 @@ hash algorithms:
   sha256: 1234
 ```
 
+### prune
+
+Remove cache entries for files that no longer exist on disk.
+
+```bash
+rsdedup cache prune
+```
+
+Example output:
+
+```
+pruned 42 stale entries
+```
+
 ### list
 
 List all cache entries in tab-separated format, suitable for parsing with `awk`, `cut`, or other tools.

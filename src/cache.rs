@@ -175,6 +175,23 @@ impl HashCache {
         })
     }
 
+    pub fn prune(&self) -> Result<u64> {
+        let mut removed = 0u64;
+        for item in self.db.iter() {
+            let (key, _) = match item {
+                Ok(kv) => kv,
+                Err(_) => continue,
+            };
+            let path = String::from_utf8_lossy(&key);
+            if !std::path::Path::new(path.as_ref()).exists() {
+                self.db.remove(&key)?;
+                removed += 1;
+            }
+        }
+        self.db.flush()?;
+        Ok(removed)
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = (String, CacheEntry)> + '_ {
         self.db.iter().filter_map(|item| {
             let (key, value) = item.ok()?;

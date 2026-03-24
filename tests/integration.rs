@@ -567,6 +567,16 @@ fn cache_stats() {
 }
 
 #[test]
+fn cache_prune() {
+    let output = rsdedup_bin().args(["cache", "prune"]).output().unwrap();
+
+    if output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("pruned"));
+    }
+}
+
+#[test]
 fn cache_list() {
     let output = rsdedup_bin().args(["cache", "list"]).output().unwrap();
 

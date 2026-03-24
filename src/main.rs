@@ -355,6 +355,12 @@ fn run_cache(action: &CacheAction, cli: &Cli) -> Result<i32> {
             }
             Ok(error::EXIT_SUCCESS)
         }
+        CacheAction::Prune => {
+            let cache = HashCache::open()?;
+            let removed = cache.prune()?;
+            eprintln!("pruned {removed} stale entries");
+            Ok(error::EXIT_SUCCESS)
+        }
     }
 }
 

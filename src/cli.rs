@@ -181,6 +181,8 @@ pub enum CacheAction {
     Stats,
     /// List all cache entries
     List,
+    /// Remove entries for files that no longer exist
+    Prune,
 }
 
 fn num_cpus() -> usize {
