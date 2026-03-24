@@ -93,8 +93,23 @@ pub fn scan(path: &Path, opts: &ScanOptions) -> Result<Vec<FileEntry>> {
             continue;
         }
 
+        let abs_path = if file_path.is_absolute() {
+            file_path.to_path_buf()
+        } else {
+            match file_path.canonicalize() {
+                Ok(p) => p,
+                Err(err) => {
+                    eprintln!(
+                        "warning: cannot canonicalize {}: {err}",
+                        file_path.display()
+                    );
+                    continue;
+                }
+            }
+        };
+
         entries.push(FileEntry {
-            path: file_path.to_path_buf(),
+            path: abs_path,
             size,
             metadata,
         });

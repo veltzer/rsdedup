@@ -3,6 +3,7 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
+use std::sync::Mutex;
 
 use crate::cache::HashCache;
 use crate::hasher::hash_file;
@@ -19,12 +20,18 @@ pub fn find_duplicates(
         .num_threads(num_jobs)
         .build()?;
 
+    // Wrap cache in a Mutex to serialize access from rayon threads,
+    // avoiding sled's internal stack overflow under concurrent access.
+    let cache_mutex = cache.map(Mutex::new);
+
     let results: Vec<Vec<DuplicateGroup>> = pool.install(|| {
         size_groups
             .into_par_iter()
             .map(|group| match method {
-                CompareMethod::SizeHash => find_dupes_size_hash(group, algo, cache),
-                CompareMethod::Hash => find_dupes_hash(group, algo, cache),
+                CompareMethod::SizeHash => {
+                    find_dupes_size_hash(group, algo, cache_mutex.as_ref())
+                }
+                CompareMethod::Hash => find_dupes_hash(group, algo, cache_mutex.as_ref()),
                 CompareMethod::ByteForByte => find_dupes_byte_for_byte(group),
             })
             .filter_map(|r| r.ok())
@@ -34,20 +41,51 @@ pub fn find_duplicates(
     Ok(results.into_iter().flatten().collect())
 }
 
+fn cache_lookup(
+    cache_mutex: Option<&Mutex<&HashCache>>,
+    entry: &FileEntry,
+    algo: HashAlgo,
+) -> (Option<String>, Option<String>) {
+    let guard = match cache_mutex {
+        Some(m) => match m.lock() {
+            Ok(g) => g,
+            Err(_) => return (None, None),
+        },
+        None => return (None, None),
+    };
+    match guard.lookup(&entry.path, algo, &entry.metadata) {
+        Some(cached) => (cached.partial_hash, cached.full_hash),
+        None => (None, None),
+    }
+}
+
+fn cache_store(
+    cache_mutex: Option<&Mutex<&HashCache>>,
+    entry: &FileEntry,
+    algo: HashAlgo,
+    partial: Option<&str>,
+    full: Option<&str>,
+) {
+    if let Some(m) = cache_mutex
+        && let Ok(guard) = m.lock()
+    {
+        let _ = guard.store(&entry.path, algo, &entry.metadata, partial, full);
+    }
+}
+
 fn find_dupes_size_hash(
     group: Vec<FileEntry>,
     algo: HashAlgo,
-    cache: Option<&HashCache>,
+    cache_mutex: Option<&Mutex<&HashCache>>,
 ) -> Result<Vec<DuplicateGroup>> {
     // Phase 1: partial hash to narrow candidates
     let mut partial_map: HashMap<String, Vec<FileEntry>> = HashMap::new();
     for entry in group {
-        let partial = get_cached_partial(&entry, algo, cache)
+        let (cached_partial, _) = cache_lookup(cache_mutex, &entry, algo);
+        let partial = cached_partial
             .or_else(|| {
                 let h = hash_file(&entry.path, algo, true).ok()?;
-                if let Some(c) = cache {
-                    let _ = c.store(&entry.path, algo, &entry.metadata, Some(&h), None);
-                }
+                cache_store(cache_mutex, &entry, algo, Some(&h), None);
                 Some(h)
             })
             .unwrap_or_default();
@@ -62,12 +100,11 @@ fn find_dupes_size_hash(
         }
         let mut full_map: HashMap<String, Vec<FileEntry>> = HashMap::new();
         for entry in candidates {
-            let full = get_cached_full(&entry, algo, cache)
+            let (_, cached_full) = cache_lookup(cache_mutex, &entry, algo);
+            let full = cached_full
                 .or_else(|| {
                     let h = hash_file(&entry.path, algo, false).ok()?;
-                    if let Some(c) = cache {
-                        let _ = c.store(&entry.path, algo, &entry.metadata, None, Some(&h));
-                    }
+                    cache_store(cache_mutex, &entry, algo, None, Some(&h));
                     Some(h)
                 })
                 .unwrap_or_default();
@@ -90,16 +127,15 @@ fn find_dupes_size_hash(
 fn find_dupes_hash(
     group: Vec<FileEntry>,
     algo: HashAlgo,
-    cache: Option<&HashCache>,
+    cache_mutex: Option<&Mutex<&HashCache>>,
 ) -> Result<Vec<DuplicateGroup>> {
     let mut hash_map: HashMap<String, Vec<FileEntry>> = HashMap::new();
     for entry in group {
-        let hash = get_cached_full(&entry, algo, cache)
+        let (_, cached_full) = cache_lookup(cache_mutex, &entry, algo);
+        let hash = cached_full
             .or_else(|| {
                 let h = hash_file(&entry.path, algo, false).ok()?;
-                if let Some(c) = cache {
-                    let _ = c.store(&entry.path, algo, &entry.metadata, None, Some(&h));
-                }
+                cache_store(cache_mutex, &entry, algo, None, Some(&h));
                 Some(h)
             })
             .unwrap_or_default();
@@ -156,20 +192,4 @@ fn files_equal(a: &std::path::Path, b: &std::path::Path) -> Result<bool> {
             return Ok(true);
         }
     }
-}
-
-fn get_cached_partial(
-    entry: &FileEntry,
-    algo: HashAlgo,
-    cache: Option<&HashCache>,
-) -> Option<String> {
-    let c = cache?;
-    let cached = c.lookup(&entry.path, algo, &entry.metadata)?;
-    cached.partial_hash
-}
-
-fn get_cached_full(entry: &FileEntry, algo: HashAlgo, cache: Option<&HashCache>) -> Option<String> {
-    let c = cache?;
-    let cached = c.lookup(&entry.path, algo, &entry.metadata)?;
-    cached.full_hash
 }
