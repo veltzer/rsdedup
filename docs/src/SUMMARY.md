@@ -1,0 +1,17 @@
+# Summary
+
+- [Introduction](introduction.md)
+- [Installation](installation.md)
+- [Getting Started](getting-started.md)
+- [Commands](commands.md)
+    - [dedup](commands/dedup.md)
+    - [cache](commands/cache.md)
+    - [version](commands/version.md)
+    - [completions](commands/completions.md)
+- [Comparison Strategies](comparison.md)
+- [Hash Algorithms](hashing.md)
+- [Hash Cache](cache.md)
+- [Filtering](filtering.md)
+- [Output Formats](output.md)
+- [Exit Codes](exit-codes.md)
+- [Design](design.md)

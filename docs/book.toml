@@ -1,0 +1,14 @@
+[book]
+authors = ["veltzer"]
+language = "en"
+src = "src"
+title = "rsdedup - A Fast File Deduplication Tool"
+
+[build]
+build-dir = "book"
+
+[output.html]
+default-theme = "rust"
+preferred-dark-theme = "ayu"
+git-repository-url = "https://github.com/veltzer/rsdedup"
+edit-url-template = "https://github.com/veltzer/rsdedup/edit/master/docs/{path}"
