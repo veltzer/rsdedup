@@ -25,9 +25,6 @@ jobs:
           - target: aarch64-apple-darwin
             os: macos-latest
             suffix: macos-aarch64
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-            suffix: windows-x86_64
 
     runs-on: ${{ matrix.os }}
 
@@ -38,14 +35,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set artifact name
-        shell: bash
-        run: |
-          REPO="${{ github.event.repository.name }}"
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            echo "ARTIFACT=${REPO}-${{ matrix.suffix }}.exe" >> "$GITHUB_ENV"
-          else
-            echo "ARTIFACT=${REPO}-${{ matrix.suffix }}" >> "$GITHUB_ENV"
-          fi
+        run: echo "ARTIFACT=${{ github.event.repository.name }}-${{ matrix.suffix }}" >> "$GITHUB_ENV"
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -63,13 +53,8 @@ jobs:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Rename binary (Unix)
-        if: runner.os != 'Windows'
+      - name: Rename binary
         run: cp target/${{ matrix.target }}/release/${{ github.event.repository.name }} ${{ env.ARTIFACT }}
-
-      - name: Rename binary (Windows)
-        if: runner.os == 'Windows'
-        run: cp target/${{ matrix.target }}/release/${{ github.event.repository.name }}.exe ${{ env.ARTIFACT }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
