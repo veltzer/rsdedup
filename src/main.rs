@@ -90,8 +90,16 @@ fn run_pipeline(path: &std::path::Path, cli: &Cli) -> Result<(Vec<DuplicateGroup
         HashCache::open().ok()
     };
 
+    let num_jobs = if cli.jobs == 0 {
+        std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1)
+    } else {
+        cli.jobs
+    };
+
     let duplicates =
-        find_duplicates(size_groups, cli.compare, cli.hash, cache.as_ref(), cli.jobs)?;
+        find_duplicates(size_groups, cli.compare, cli.hash, cache.as_ref(), num_jobs)?;
 
     if let Some(ref c) = cache {
         let _ = c.flush();

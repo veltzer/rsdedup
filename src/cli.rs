@@ -61,8 +61,8 @@ pub struct Cli {
     #[arg(long, value_enum, default_value_t = OutputFormat::Text, global = true, hide_short_help = true)]
     pub output: OutputFormat,
 
-    /// Number of parallel workers
-    #[arg(short, long, default_value_t = num_cpus(), global = true, hide_short_help = true)]
+    /// Number of parallel workers (0 = all CPUs)
+    #[arg(short, long, default_value_t = 1, global = true, hide_short_help = true)]
     pub jobs: usize,
 
     /// Disable the hash cache
@@ -183,12 +183,6 @@ pub enum CacheAction {
     List,
     /// Remove entries for files that no longer exist
     Prune,
-}
-
-fn num_cpus() -> usize {
-    std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(1)
 }
 
 pub fn generate_completions(shell: Shell) {
