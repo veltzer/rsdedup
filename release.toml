@@ -1,0 +1,19 @@
+# cargo-release configuration
+# Usage:
+#   cargo release patch    - bump patch (0.1.0 -> 0.1.1)
+#   cargo release minor    - bump minor (0.1.0 -> 0.2.0)
+#   cargo release major    - bump major (0.1.0 -> 1.0.0)
+# Add --execute to actually run (dry-run by default)
+
+# Commit and tag format
+tag-message = "release v{{version}}"
+tag-prefix = ""
+
+# Don't publish to crates.io during release (do it separately with cargo pub)
+publish = true
+
+# Push commits and tags to remote
+push = true
+
+# Sign tags
+sign-tag = true
