@@ -54,12 +54,30 @@ jobs:
           path: ~/.cache/apt-archives
           key: apt-${{ runner.os }}-${{ matrix.target }}-${{ env.APT_CACHE_WEEK }}
 
+      # Acquire options because apt does not fail fast on a bad mirror. The
+      # runner's /etc/apt/apt-mirrors.txt lists azure.archive.ubuntu.com first,
+      # and that host goes unreachable intermittently. apt's defaults turn that
+      # into a hang rather than an error: Acquire::Retries is 0, so there is no
+      # second attempt, and the http timeout is 120s per connection, which the
+      # mirrorlist multiplies across every suite and component. Timeout=15 caps
+      # how long a dead mirror holds each connection and Retries=3 lets apt fall
+      # through to archive.ubuntu.com. veltzer.github.io lost a build to exactly
+      # this on 2026-08-19.
+      #
+      # timeout-minutes is the outer backstop: without it a hang here runs to
+      # GitHub's 6-hour job default, occupying a runner and telling nobody.
       - name: Install cross-compilation tools (Linux aarch64)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
+        timeout-minutes: 5
+        env:
+          APT_OPTS: >-
+            -o Acquire::Retries=3
+            -o Acquire::http::Timeout=15
+            -o Acquire::https::Timeout=15
         run: |
           mkdir -p ~/.cache/apt-archives/partial
-          sudo apt-get update
-          sudo apt-get -o Dir::Cache::Archives="$HOME/.cache/apt-archives" install -y gcc-aarch64-linux-gnu
+          sudo apt-get $APT_OPTS update
+          sudo apt-get $APT_OPTS -o Dir::Cache::Archives="$HOME/.cache/apt-archives" install -y gcc-aarch64-linux-gnu
           sudo chown -R "$USER" ~/.cache/apt-archives
 
       - name: Build
