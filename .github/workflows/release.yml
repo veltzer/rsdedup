@@ -63,12 +63,8 @@ jobs:
       # how long a dead mirror holds each connection and Retries=3 lets apt fall
       # through to archive.ubuntu.com. veltzer.github.io lost a build to exactly
       # this on 2026-08-19.
-      #
-      # timeout-minutes is the outer backstop: without it a hang here runs to
-      # GitHub's 6-hour job default, occupying a runner and telling nobody.
       - name: Install cross-compilation tools (Linux aarch64)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
-        timeout-minutes: 5
         env:
           APT_OPTS: >-
             -o Acquire::Retries=3
