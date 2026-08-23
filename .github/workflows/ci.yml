@@ -32,12 +32,6 @@ jobs:
       - name: Cache cargo registry and target
         uses: Swatinem/rust-cache@v2
 
-      - name: Build
-        run: cargo build
-
-      - name: Clippy
-        run: cargo clippy --all-targets -- -D warnings
-
       # Language runtimes come from the standard setup actions. Each installs
       # into the runner's toolcache, which the runner user owns — so the
       # install-tools script below can `pip install` / `npm install -g` /
@@ -57,14 +51,23 @@ jobs:
         with:
           ruby-version: '3.3'
 
-      # Every repo owns scripts/ci-install-tools.sh: it installs the external
-      # tools that repo's tests shell out to, and is an explicit no-op where
-      # there are none. The script is required — a repo without it fails here
-      # rather than silently skipping its tool setup. Nothing in the script
-      # may be best-effort: a tool that cannot be installed must fail this
-      # step instead of surfacing later as a confusing test failure.
-      - name: Install test tools
+      # Every repo owns scripts/ci-install-tools.sh: it installs the system
+      # libraries the build links against and the external tools the tests
+      # shell out to, and is an explicit no-op where there are none. It runs
+      # before the build because build scripts (e.g. -sys crates probing
+      # pkg-config) already need the libraries. The script is required — a
+      # repo without it fails here rather than silently skipping its setup.
+      # Nothing in the script may be best-effort: a tool that cannot be
+      # installed must fail this step instead of surfacing later as a
+      # confusing build or test failure.
+      - name: Install build and test tools
         run: ./scripts/ci-install-tools.sh
+
+      - name: Build
+        run: cargo build
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
 
       # The suite hard-fails on any missing tool (tests never skip), so a
       # gap in the tool setup fails the run loudly instead of shrinking it.
