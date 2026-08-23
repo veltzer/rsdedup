@@ -1,0 +1,240 @@
+name: CI
+
+# This file is byte-identical across all rs* repos. Do not edit it in one
+# repo: edit the canonical copy in rsconstruct and sync it out. Everything
+# repo-specific lives outside this file — scripts/ci-install-tools.sh installs
+# the tools this repo's tests shell out to, and docs/ carries the mdBook.
+
+on:
+  push:
+  workflow_dispatch:
+
+# Baseline is read-only; jobs that publish (release, docs) elevate their own
+# permissions individually.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      # Language runtimes come from the standard setup actions. Each installs
+      # into the runner's toolcache, which the runner user owns — so the
+      # install-tools script below can `pip install` / `npm install -g` /
+      # `gem install` with no venv, no GEM_HOME, no npm prefix, and no sudo.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      # Every repo owns scripts/ci-install-tools.sh: it installs the external
+      # tools that repo's tests shell out to, and is an explicit no-op where
+      # there are none. The script is required — a repo without it fails here
+      # rather than silently skipping its tool setup. Nothing in the script
+      # may be best-effort: a tool that cannot be installed must fail this
+      # step instead of surfacing later as a confusing test failure.
+      - name: Install test tools
+        run: ./scripts/ci-install-tools.sh
+
+      # The suite hard-fails on any missing tool (tests never skip), so a
+      # gap in the tool setup fails the run loudly instead of shrinking it.
+      - name: Run tests
+        run: cargo test
+
+  build:
+    if: startsWith(github.ref, 'refs/tags/v')
+    # A release never ships from a commit whose tests fail.
+    needs: test
+    # A newer release run supersedes any still-running one, even for a
+    # different tag: the group ignores the ref, so pushing a new tag cancels
+    # the in-flight build of the same target from the previous tag.
+    concurrency:
+      group: release-build-${{ matrix.target }}
+      cancel-in-progress: true
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            suffix: linux-x86_64
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            suffix: linux-aarch64
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            suffix: macos-x86_64
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            suffix: macos-aarch64
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Set artifact name
+        shell: bash
+        run: |
+          REPO="${{ github.event.repository.name }}"
+          echo "ARTIFACT=${REPO}-${{ matrix.suffix }}" >> "$GITHUB_ENV"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Compute weekly apt cache key
+        if: runner.os == 'Linux'
+        run: echo "APT_CACHE_WEEK=$(date -u +%Y-W%V)" >> "$GITHUB_ENV"
+
+      - name: Cache apt archives
+        if: runner.os == 'Linux'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/apt-archives
+          key: apt-${{ runner.os }}-${{ matrix.target }}-${{ env.APT_CACHE_WEEK }}
+
+      # Acquire::Retries because apt's default is 0: when the first mirror in
+      # /etc/apt/apt-mirrors.txt (azure.archive.ubuntu.com) is unreachable there
+      # is no second attempt. Retries=3 lets apt fall through to
+      # archive.ubuntu.com. No Timeout override and no timeout-minutes: a tight
+      # timeout killed the healthy-but-slow v0.9.56 release build at exactly
+      # 5 minutes (run 32261605657), which is worse than waiting out a slow
+      # mirror.
+      - name: Install cross-compilation tools (Linux aarch64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          mkdir -p ~/.cache/apt-archives/partial
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 -o Dir::Cache::Archives="$HOME/.cache/apt-archives" install -y gcc-aarch64-linux-gnu
+          sudo chown -R "$USER" ~/.cache/apt-archives
+
+      - name: Build
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Rename binary
+        run: cp target/${{ matrix.target }}/release/${{ github.event.repository.name }} ${{ env.ARTIFACT }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT }}
+          path: ${{ env.ARTIFACT }}
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    permissions:
+      contents: write
+    concurrency:
+      group: release-publish
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: artifacts/*
+
+  docs:
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    needs: test
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: true
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install mdBook
+        uses: peaceiris/actions-mdbook@v2
+        with:
+          mdbook-version: latest
+
+      - name: Populate release info page
+        run: |
+          set -euo pipefail
+          version="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
+          tag="${GITHUB_REF_NAME}"
+          commit="${GITHUB_SHA}"
+          released_at="$(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          file="docs/src/release-info.md"
+          sed -i \
+            -e "s|__VERSION__|${version}|g" \
+            -e "s|__GIT_TAG__|${tag}|g" \
+            -e "s|__GIT_COMMIT__|${commit}|g" \
+            -e "s|__RELEASE_DATE__|${released_at}|g" \
+            -e "s|__WORKFLOW_NAME__|${GITHUB_WORKFLOW}|g" \
+            -e "s|__WORKFLOW_RUN_NUMBER__|${GITHUB_RUN_NUMBER}|g" \
+            -e "s|__WORKFLOW_RUN_URL__|${run_url}|g" \
+            "${file}"
+
+      - name: Build book
+        run: mdbook build docs
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/book
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

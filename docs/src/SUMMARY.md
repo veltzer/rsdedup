@@ -16,3 +16,4 @@
 - [Output Formats](output.md)
 - [Exit Codes](exit-codes.md)
 - [Design](design.md)
+- [Release Info](release-info.md)
