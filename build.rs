@@ -51,7 +51,8 @@ fn main() {
         .ok()
         .and_then(|s| {
             let package_section = s.split("\n[").next().unwrap_or("");
-            package_section.lines()
+            package_section
+                .lines()
                 .find(|l| l.trim_start().starts_with("edition"))
                 .and_then(|l| l.split('=').nth(1))
                 .map(|v| v.trim().trim_matches('"').to_owned())
