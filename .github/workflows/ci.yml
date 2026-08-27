@@ -5,8 +5,14 @@ name: CI
 # repo-specific lives outside this file — scripts/ci-install-tools.sh installs
 # the tools this repo's tests shell out to, and docs/ carries the mdBook.
 
+# Branch pushes only, deliberately: `cargo release` pushes the release
+# commit and its tag together, and an unfiltered `on: push` turned that
+# into two identically-titled runs. The release pipeline runs from the
+# default-branch push of the release commit (see is-release below); the
+# tag push triggers nothing.
 on:
   push:
+    branches: ['**']
   workflow_dispatch:
 
 # Baseline is read-only; jobs that publish (release, docs) elevate their own
@@ -75,12 +81,20 @@ jobs:
         run: cargo test
 
   build:
-    if: startsWith(github.ref, 'refs/tags/v')
+    # is-release: a default-branch push of a `cargo release` commit
+    # ("chore: Release <crate> version <x.y.z>"). The tag itself does not
+    # trigger CI (see `on:` above), so the release commit's message is the
+    # release signal, and the tag name is recomputed from Cargo.toml —
+    # which the same commit bumped.
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
+      startsWith(github.event.head_commit.message, 'chore: Release ')
     # A release never ships from a commit whose tests fail.
     needs: test
     # A newer release run supersedes any still-running one, even for a
-    # different tag: the group ignores the ref, so pushing a new tag cancels
-    # the in-flight build of the same target from the previous tag.
+    # different version: the group ignores the ref, so a new release commit
+    # cancels the in-flight build of the same target from the previous one.
     concurrency:
       group: release-build-${{ matrix.target }}
       cancel-in-progress: true
@@ -165,7 +179,11 @@ jobs:
           path: ${{ env.ARTIFACT }}
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Same is-release condition as build (see the comment there).
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
+      startsWith(github.event.head_commit.message, 'chore: Release ')
     needs: build
     permissions:
       contents: write
@@ -174,20 +192,43 @@ jobs:
       cancel-in-progress: true
     runs-on: ubuntu-latest
     steps:
+      # Checkout must precede the artifact download — it wipes the workspace.
+      # It is here only to read the released version out of Cargo.toml.
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
 
+      - name: Compute release tag from Cargo.toml
+        id: tag
+        run: |
+          set -euo pipefail
+          version="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
+          echo "tag=v${version}" >> "$GITHUB_OUTPUT"
+
+      # `cargo release` pushes the signed tag alongside the commit, so by the
+      # time the cross-platform builds finish the tag exists and is used
+      # as-is; target_commitish only matters in the fallback where the tag
+      # push did not arrive and the action creates the tag itself.
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true
           files: artifacts/*
 
   docs:
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    # Deploys on a release (same is-release condition as build) or manually.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' &&
+       github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
+       startsWith(github.event.head_commit.message, 'chore: Release '))
     needs: test
     permissions:
       contents: read
@@ -215,7 +256,10 @@ jobs:
         run: |
           set -euo pipefail
           version="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
-          tag="${GITHUB_REF_NAME}"
+          # CI runs on the branch push, not the tag push, so the ref name is
+          # the branch; the tag is derived from the version the release
+          # commit put in Cargo.toml (cargo-release tags v<version>).
+          tag="v${version}"
           commit="${GITHUB_SHA}"
           released_at="$(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
