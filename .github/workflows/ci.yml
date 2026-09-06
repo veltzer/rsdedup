@@ -66,7 +66,17 @@ jobs:
       # Nothing in the script may be best-effort: a tool that cannot be
       # installed must fail this step instead of surfacing later as a
       # confusing build or test failure.
+      # GITHUB_TOKEN is forwarded because tool installation may resolve a
+      # download URL from the GitHub releases API (rsconstruct does this for
+      # drawio). That API allows 60 requests/hour per source IP when
+      # unauthenticated, and hosted runners share egress IPs, so a busy pool
+      # fails the step instantly with a 403 (run 33967438754). The token
+      # raises the limit to 5000/hour. Harmless where the script makes no
+      # such call, which is why it belongs in the shared file rather than in
+      # one repo's script. The default read-only permission is all it needs.
       - name: Install build and test tools
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./scripts/ci-install-tools.sh
 
       - name: Build
