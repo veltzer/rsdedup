@@ -85,10 +85,28 @@ jobs:
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings
 
+      # cargo-nextest is the fleet's test runner: utils-bash/src/cargo_test.sh
+      # runs it locally and .config/nextest.toml carries the shared profile, so
+      # CI runs the same runner and local and CI agree on what a passing suite
+      # is. The prebuilt binary comes from nextest's own release channel and,
+      # like rust-toolchain@stable above, tracks the current release.
+      - name: Install cargo-nextest
+        run: curl -LsSf https://get.nexte.st/latest/linux | tar zxf - -C "${CARGO_HOME:-$HOME/.cargo}/bin"
+
       # The suite hard-fails on any missing tool (tests never skip), so a
       # gap in the tool setup fails the run loudly instead of shrinking it.
       - name: Run tests
-        run: cargo test
+        run: cargo nextest run
+
+      # nextest does not run doctests, so those stay with cargo. Doctests only
+      # exist for library targets, and `cargo test --doc` errors outright on a
+      # binary-only crate ("no library targets found"), so the step runs where
+      # src/lib.rs exists -- which is exactly the set `cargo test` used to run
+      # doctests for. Same presence-guard pattern as the Pages upload in
+      # build.yml: scoping the check to where it applies, not switching it off.
+      - name: Run doctests
+        if: hashFiles('src/lib.rs') != ''
+        run: cargo test --doc
 
   build:
     # is-release: a default-branch push of a `cargo release` commit
