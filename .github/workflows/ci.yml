@@ -210,6 +210,24 @@ jobs:
           sudo apt-get -o Acquire::Retries=3 -o Dir::Cache::Archives="$HOME/.cache/apt-archives" install -y gcc-aarch64-linux-gnu
           sudo chown -R "$USER" ~/.cache/apt-archives
 
+      # The same per-repo setup the test job runs, for the same reason: a
+      # build script that probes pkg-config for a system library (rsear's
+      # alsa-sys) needs that library on the release runner just as much as
+      # on the test runner. Without this step every rsear release failed
+      # here on ALSA after the test job had passed (run 34358292093).
+      # Linux only: every install script in the fleet is apt-based, the test
+      # job is Linux-only so test tools are never wanted elsewhere, and no
+      # crate links a macOS system library. TARGET tells the script which
+      # triple the Build step compiles for, so a cross build can install the
+      # foreign-architecture library it links against; the script is also
+      # the right place for the pkg-config cross setup that needs.
+      - name: Install build and test tools
+        if: runner.os == 'Linux'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET: ${{ matrix.target }}
+        run: ./scripts/ci-install-tools.sh
+
       - name: Build
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
