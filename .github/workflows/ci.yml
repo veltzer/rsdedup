@@ -210,6 +210,31 @@ jobs:
           sudo apt-get -o Acquire::Retries=3 -o Dir::Cache::Archives="$HOME/.cache/apt-archives" install -y gcc-aarch64-linux-gnu
           sudo chown -R "$USER" ~/.cache/apt-archives
 
+      # The install script needs the same runtimes the test job sets up, for
+      # the same reason (see the comment there): only the toolcache installs
+      # are runner-owned. Without these, `npm install -g` resolves to the
+      # image's system node whose prefix is root-owned /usr/local, and the
+      # first package that ships a man page fails with EACCES symlinking
+      # into /usr/local/share/man/man1 (run 34390328346, jslint). Linux
+      # only, like the install step they serve.
+      - name: Set up Python
+        if: runner.os == 'Linux'
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+
+      - name: Set up Node
+        if: runner.os == 'Linux'
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Set up Ruby
+        if: runner.os == 'Linux'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
       # The same per-repo setup the test job runs, for the same reason: a
       # build script that probes pkg-config for a system library (rsear's
       # alsa-sys) needs that library on the release runner just as much as
