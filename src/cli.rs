@@ -62,7 +62,13 @@ pub struct Cli {
     pub output: OutputFormat,
 
     /// Number of parallel workers (0 = all CPUs)
-    #[arg(short, long, default_value_t = 1, global = true, hide_short_help = true)]
+    #[arg(
+        short,
+        long,
+        default_value_t = 1,
+        global = true,
+        hide_short_help = true
+    )]
     pub jobs: usize,
 
     /// Disable the hash cache

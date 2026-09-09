@@ -116,7 +116,10 @@ fn prompt_interactive(
             return Ok((keeper_original_idx, to_remove));
         }
 
-        println!("Invalid choice. Enter a number 1-{} or 's' to skip.", group.files.len());
+        println!(
+            "Invalid choice. Enter a number 1-{} or 's' to skip.",
+            group.files.len()
+        );
     }
 }
 

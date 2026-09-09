@@ -28,9 +28,7 @@ pub fn find_duplicates(
         size_groups
             .into_par_iter()
             .map(|group| match method {
-                CompareMethod::SizeHash => {
-                    find_dupes_size_hash(group, algo, cache_mutex.as_ref())
-                }
+                CompareMethod::SizeHash => find_dupes_size_hash(group, algo, cache_mutex.as_ref()),
                 CompareMethod::Hash => find_dupes_hash(group, algo, cache_mutex.as_ref()),
                 CompareMethod::ByteForByte => find_dupes_byte_for_byte(group),
             })

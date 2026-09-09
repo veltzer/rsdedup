@@ -86,7 +86,14 @@ fn delete_dry_run_does_not_remove_files() {
     write_file(dir.path(), "b.txt", "dup");
 
     let output = rsdedup_bin()
-        .args(["dedup", "delete", "--no-cache", "--dry-run", "--keep", "first"])
+        .args([
+            "dedup",
+            "delete",
+            "--no-cache",
+            "--dry-run",
+            "--keep",
+            "first",
+        ])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -286,7 +293,13 @@ fn compare_byte_for_byte() {
     write_file(dir.path(), "b.txt", "same bytes");
 
     let output = rsdedup_bin()
-        .args(["dedup", "report", "--no-cache", "--compare", "byte-for-byte"])
+        .args([
+            "dedup",
+            "report",
+            "--no-cache",
+            "--compare",
+            "byte-for-byte",
+        ])
         .arg(dir.path())
         .output()
         .unwrap();
@@ -356,10 +369,7 @@ fn version_subcommand() {
 
 #[test]
 fn completions_subcommand() {
-    let output = rsdedup_bin()
-        .args(["complete", "bash"])
-        .output()
-        .unwrap();
+    let output = rsdedup_bin().args(["complete", "bash"]).output().unwrap();
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -604,7 +614,10 @@ fn verbose_flag() {
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
     // Verbose should produce some diagnostic output on stderr
-    assert!(!stderr.is_empty(), "verbose flag should produce stderr output");
+    assert!(
+        !stderr.is_empty(),
+        "verbose flag should produce stderr output"
+    );
 }
 
 #[test]
@@ -689,8 +702,16 @@ fn min_and_max_size_combined() {
     write_file(dir.path(), "tiny2.txt", "ab");
     write_file(dir.path(), "mid1.txt", "medium sized");
     write_file(dir.path(), "mid2.txt", "medium sized");
-    write_file(dir.path(), "big1.txt", "this is a much bigger file content here!!");
-    write_file(dir.path(), "big2.txt", "this is a much bigger file content here!!");
+    write_file(
+        dir.path(),
+        "big1.txt",
+        "this is a much bigger file content here!!",
+    );
+    write_file(
+        dir.path(),
+        "big2.txt",
+        "this is a much bigger file content here!!",
+    );
 
     let output = rsdedup_bin()
         .args([
@@ -770,7 +791,10 @@ fn symlink_dry_run() {
         .unwrap()
         .file_type()
         .is_symlink();
-    assert!(!a_is_symlink && !b_is_symlink, "dry-run should not create symlinks");
+    assert!(
+        !a_is_symlink && !b_is_symlink,
+        "dry-run should not create symlinks"
+    );
 }
 
 // --- Jobs flag ---
@@ -886,7 +910,12 @@ fn hardlink_json_output() {
 #[test]
 fn nonexistent_directory_warns() {
     let output = rsdedup_bin()
-        .args(["dedup", "report", "--no-cache", "/tmp/rsdedup_nonexistent_dir_test_12345"])
+        .args([
+            "dedup",
+            "report",
+            "--no-cache",
+            "/tmp/rsdedup_nonexistent_dir_test_12345",
+        ])
         .output()
         .unwrap();
 

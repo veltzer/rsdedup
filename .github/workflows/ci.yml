@@ -33,10 +33,16 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy
+          components: clippy, rustfmt
 
       - name: Cache cargo registry and target
         uses: Swatinem/rust-cache@v2
+
+      # Formatting is a gate, not a suggestion: stock rustfmt (there is no
+      # rustfmt.toml anywhere in the fleet), checked before anything is
+      # compiled because it needs no build and fails fastest.
+      - name: Format check
+        run: cargo fmt --all --check
 
       # Language runtimes come from the standard setup actions. Each installs
       # into the runner's toolcache, which the runner user owns — so the
@@ -84,6 +90,18 @@ jobs:
 
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings
+
+      # cargo-audit checks Cargo.lock against the RustSec advisory database.
+      # A known vulnerability in the locked closure fails the run; the
+      # informational classes (unmaintained, unsound, yanked) are reported
+      # as warnings and do not, which is cargo-audit's default. Installed
+      # with cargo so local and CI run the identical command; rust-cache
+      # keeps the built binary between runs.
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: Audit dependencies
+        run: cargo audit
 
       # cargo-nextest is the fleet's test runner: utils-bash/src/cargo_test.sh
       # runs it locally and .config/nextest.toml carries the shared profile, so
