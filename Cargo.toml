@@ -9,7 +9,7 @@ repository = "https://github.com/veltzer/rsdedup"
 
 [dependencies]
 anyhow = "1"
-bincode = "1"
+bincode = "3"
 blake3 = "1"
 clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
