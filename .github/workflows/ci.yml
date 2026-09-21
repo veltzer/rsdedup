@@ -91,17 +91,17 @@ jobs:
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings
 
-      # cargo-audit checks Cargo.lock against the RustSec advisory database.
+      # cargo-deny checks Cargo.lock against the RustSec advisory database.
       # A known vulnerability in the locked closure fails the run; the
       # informational classes (unmaintained, unsound, yanked) are reported
-      # as warnings and do not, which is cargo-audit's default. Installed
+      # as warnings and do not, which is cargo-deny's default. Installed
       # with cargo so local and CI run the identical command; rust-cache
       # keeps the built binary between runs.
-      - name: Install cargo-audit
-        run: cargo install cargo-audit --locked
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
 
-      - name: Audit dependencies
-        run: cargo audit
+      - name: Deny dependencies
+        run: cargo deny check
 
       # cargo-nextest is the fleet's test runner: utils-bash/src/cargo_test.sh
       # runs it locally and .config/nextest.toml carries the shared profile, so
