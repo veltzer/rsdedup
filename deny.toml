@@ -1,0 +1,45 @@
+# cargo-deny configuration: `cargo deny check` runs in CI and in
+# `rsconstruct build` (processor.clippy.deny). cargo-deny has no permissive
+# default: without this file every license is rejected and every advisory
+# class is an error.
+
+[graph]
+all-features = true
+
+# Every RustSec advisory in the locked closure fails the build: a
+# vulnerability needs `cargo update`, an unmaintained crate needs a
+# maintained replacement. Nothing is ignored here; an ignore entry must
+# carry the advisory id and the reason it cannot be fixed yet.
+[advisories]
+ignore = []
+
+# Only these licenses may appear in the dependency graph. All are
+# permissive; a crate offering a choice (`MIT OR Apache-2.0`) passes when any
+# alternative is listed, which is why r-efi's LGPL option needs no entry.
+[licenses]
+allow = [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CC0-1.0",
+    "CDLA-Permissive-2.0",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
+confidence-threshold = 0.8
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
