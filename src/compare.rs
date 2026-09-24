@@ -20,8 +20,8 @@ pub fn find_duplicates(
         .num_threads(num_jobs)
         .build()?;
 
-    // Wrap cache in a Mutex to serialize access from rayon threads,
-    // avoiding sled's internal stack overflow under concurrent access.
+    // Wrap cache in a Mutex to serialize access from rayon threads: redb allows a
+    // single write transaction at a time, so writers must not race.
     let cache_mutex = cache.map(Mutex::new);
 
     let results: Vec<Vec<DuplicateGroup>> = pool.install(|| {

@@ -11,7 +11,27 @@ all-features = true
 # maintained replacement. Nothing is ignored here; an ignore entry must
 # carry the advisory id and the reason it cannot be fixed yet.
 [advisories]
-ignore = []
+ignore = [
+    # google-apis-rs (google-people1, google-apis-common) is unmaintained and
+    # there is no maintained Rust client for the Google People API. rscontacts
+    # keeps it until its API layer is rewritten over reqwest. rscontacts only.
+    { id = "RUSTSEC-2025-0066", reason = "no maintained replacement for google-people1; rewrite over reqwest pending" },
+    # ttf-parser has no maintained successor yet. It reaches the fleet only
+    # through upstream crates that pin it: eframe/winit's Wayland decorations
+    # (ab_glyph) in rsear and rsimagetag, and fontdb/usvg in rsslide. Drop
+    # this entry when those upstreams move off it.
+    { id = "RUSTSEC-2026-0192", reason = "pinned by eframe (winit/sctk-adwaita/ab_glyph) and fontdb/usvg; no upstream release without it" },
+    # rustybuzz, same situation: pulled in by krilla and usvg in rsslide.
+    { id = "RUSTSEC-2026-0206", reason = "pinned by krilla and usvg; no upstream release without it" },
+    # bincode 1 is what syntect's dump-load feature deserialises its bundled
+    # syntaxes with; rsslide needs those syntaxes. Drop when syntect moves.
+    { id = "RUSTSEC-2025-0141", reason = "pinned by syntect's dump-load feature; no upstream release without it" },
+    # clap 2 (with ansi_term and atty) is a build dependency of bindgen 0.59,
+    # which fluidlite-sys pins. Build-time only, rsear only. Drop when
+    # fluidlite-sys moves to a current bindgen.
+    { id = "RUSTSEC-2021-0139", reason = "ansi_term via clap 2 via bindgen 0.59, a build dependency pinned by fluidlite-sys" },
+    { id = "RUSTSEC-2024-0375", reason = "atty via clap 2 via bindgen 0.59, a build dependency pinned by fluidlite-sys" },
+]
 
 # Only these licenses may appear in the dependency graph. All are
 # permissive; a crate offering a choice (`MIT OR Apache-2.0`) passes when any
@@ -30,11 +50,37 @@ allow = [
     "MIT",
     "MIT-0",
     "MPL-2.0",
+    # Font licences: egui embeds its default fonts (epaint_default_fonts),
+    # which carry OFL-1.1 and Ubuntu-font-1.0 alongside MIT OR Apache-2.0.
+    "OFL-1.1",
+    "Ubuntu-font-1.0",
     "Unicode-3.0",
     "Unlicense",
     "Zlib",
 ]
 confidence-threshold = 0.8
+
+# fluidlite and fluidlite-sys (rsear's synthesiser) are LGPL-2.1: a
+# deliberate, crate-scoped exception rather than a fleet-wide allowance of
+# LGPL. Their manifests use the deprecated bare "LGPL-2.1" identifier, hence
+# the clarifications.
+[[licenses.clarify]]
+name = "fluidlite"
+expression = "LGPL-2.1-only"
+license-files = []
+
+[[licenses.clarify]]
+name = "fluidlite-sys"
+expression = "LGPL-2.1-only"
+license-files = []
+
+[[licenses.exceptions]]
+name = "fluidlite"
+allow = ["LGPL-2.1-only"]
+
+[[licenses.exceptions]]
+name = "fluidlite-sys"
+allow = ["LGPL-2.1-only"]
 
 [bans]
 multiple-versions = "warn"

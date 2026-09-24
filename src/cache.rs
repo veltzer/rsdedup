@@ -1,9 +1,13 @@
 use anyhow::{Context, Result};
+use redb::{Database, ReadableDatabase, ReadableTable, TableDefinition};
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::types::{CacheEntry, HashAlgo};
+
+/// Path -> JSON-encoded `CacheEntry`.
+const HASHES: TableDefinition<&str, &[u8]> = TableDefinition::new("hashes");
 
 pub struct CacheStats {
     pub entries: u64,
@@ -18,7 +22,7 @@ pub struct CacheStats {
 }
 
 pub struct HashCache {
-    db: sled::Db,
+    db: Database,
     db_path: PathBuf,
 }
 
@@ -36,10 +40,23 @@ impl HashCache {
         let dir = cache_dir();
         std::fs::create_dir_all(&dir)
             .with_context(|| format!("failed to create cache dir: {}", dir.display()))?;
-        let db_path = dir.join("cache.db");
-        let db = sled::open(&db_path)
+        // `cache.redb`, not the old sled `cache.db` directory: the formats are
+        // unrelated and a cache is disposable, so the old one is simply left behind.
+        let db_path = dir.join("cache.redb");
+        let db = Database::create(&db_path)
             .with_context(|| format!("failed to open cache db: {}", db_path.display()))?;
+        // Make sure the table exists so read transactions never fail on a fresh db.
+        let txn = db.begin_write()?;
+        txn.open_table(HASHES)?;
+        txn.commit()?;
         Ok(Self { db, db_path })
+    }
+
+    fn get_raw(&self, key: &str) -> Option<CacheEntry> {
+        let txn = self.db.begin_read().ok()?;
+        let table = txn.open_table(HASHES).ok()?;
+        let guard = table.get(key).ok()??;
+        serde_json::from_slice(guard.value()).ok()
     }
 
     pub fn lookup(
@@ -49,8 +66,7 @@ impl HashCache {
         metadata: &std::fs::Metadata,
     ) -> Option<CacheEntry> {
         let key = Self::make_key(path);
-        let bytes = self.db.get(&key).ok()??;
-        let entry: CacheEntry = bincode::deserialize(&bytes).ok()?;
+        let entry = self.get_raw(&key)?;
 
         if entry.hash_algo != algo_str(algo) {
             return None;
@@ -105,21 +121,44 @@ impl HashCache {
             cached_at: now,
         };
 
-        let bytes = bincode::serialize(&entry)?;
+        let bytes = serde_json::to_vec(&entry)?;
         let key = Self::make_key(path);
-        self.db.insert(key, bytes)?;
+        let txn = self.db.begin_write()?;
+        {
+            let mut table = txn.open_table(HASHES)?;
+            table.insert(key.as_str(), bytes.as_slice())?;
+        }
+        txn.commit()?;
         Ok(())
     }
 
     pub fn clear(&self) -> Result<()> {
-        self.db.clear()?;
-        self.db.flush()?;
+        let txn = self.db.begin_write()?;
+        txn.delete_table(HASHES)?;
+        txn.open_table(HASHES)?;
+        txn.commit()?;
         Ok(())
     }
 
+    /// Every (path, entry) pair currently stored, decoded. Entries that fail
+    /// to decode are skipped, as they were with the previous on-disk format.
+    fn entries(&self) -> Result<Vec<(String, CacheEntry)>> {
+        let txn = self.db.begin_read()?;
+        let table = txn.open_table(HASHES)?;
+        let mut out = Vec::new();
+        for item in table.iter()? {
+            let (key, value) = item?;
+            if let Ok(entry) = serde_json::from_slice::<CacheEntry>(value.value()) {
+                out.push((key.value().to_string(), entry));
+            }
+        }
+        Ok(out)
+    }
+
     pub fn stats(&self) -> Result<CacheStats> {
-        let count = self.db.len() as u64;
-        let size = self.db.size_on_disk()?;
+        let size = std::fs::metadata(&self.db_path)?.len();
+        let entries = self.entries()?;
+        let count = entries.len() as u64;
 
         let mut algo_counts: std::collections::HashMap<String, u64> =
             std::collections::HashMap::new();
@@ -130,17 +169,7 @@ impl HashCache {
         let mut with_full: u64 = 0;
         let mut stale: u64 = 0;
 
-        for item in self.db.iter() {
-            let (key, value) = match item {
-                Ok(kv) => kv,
-                Err(_) => continue,
-            };
-
-            let entry: CacheEntry = match bincode::deserialize(&value) {
-                Ok(e) => e,
-                Err(_) => continue,
-            };
-
+        for (path, entry) in &entries {
             *algo_counts.entry(entry.hash_algo.clone()).or_default() += 1;
             total_file_size += entry.size;
 
@@ -156,8 +185,7 @@ impl HashCache {
             newest = Some(newest.map_or(ts, |n: u64| n.max(ts)));
 
             // Check if the file still exists
-            let path = String::from_utf8_lossy(&key);
-            if !std::path::Path::new(path.as_ref()).exists() {
+            if !std::path::Path::new(path).exists() {
                 stale += 1;
             }
         }
@@ -176,42 +204,46 @@ impl HashCache {
     }
 
     pub fn prune(&self) -> Result<u64> {
-        let mut removed = 0u64;
-        for item in self.db.iter() {
-            let (key, _) = match item {
-                Ok(kv) => kv,
-                Err(_) => continue,
-            };
-            let path = String::from_utf8_lossy(&key);
-            if !std::path::Path::new(path.as_ref()).exists() {
-                self.db.remove(&key)?;
-                removed += 1;
+        let stale: Vec<String> = {
+            let txn = self.db.begin_read()?;
+            let table = txn.open_table(HASHES)?;
+            let mut keys = Vec::new();
+            for item in table.iter()? {
+                let (key, _) = item?;
+                let path = key.value();
+                if !std::path::Path::new(path).exists() {
+                    keys.push(path.to_string());
+                }
+            }
+            keys
+        };
+        let txn = self.db.begin_write()?;
+        {
+            let mut table = txn.open_table(HASHES)?;
+            for key in &stale {
+                table.remove(key.as_str())?;
             }
         }
-        self.db.flush()?;
-        Ok(removed)
+        txn.commit()?;
+        Ok(stale.len() as u64)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (String, CacheEntry)> + '_ {
-        self.db.iter().filter_map(|item| {
-            let (key, value) = item.ok()?;
-            let path = String::from_utf8_lossy(&key).into_owned();
-            let entry: CacheEntry = bincode::deserialize(&value).ok()?;
-            Some((path, entry))
-        })
+        self.entries().unwrap_or_default().into_iter()
     }
 
     pub fn path(&self) -> &Path {
         &self.db_path
     }
 
+    /// Every write is committed durably by redb, so there is nothing to flush;
+    /// kept so callers do not need to know which store is behind the cache.
     pub fn flush(&self) -> Result<()> {
-        self.db.flush()?;
         Ok(())
     }
 
-    fn make_key(path: &Path) -> Vec<u8> {
-        path.to_string_lossy().as_bytes().to_vec()
+    fn make_key(path: &Path) -> String {
+        path.to_string_lossy().into_owned()
     }
 }
 
