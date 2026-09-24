@@ -21,8 +21,15 @@ pub fn hash_file(path: &Path, algo: HashAlgo, partial: bool) -> Result<String> {
     match algo {
         HashAlgo::Sha256 => {
             let mut hasher = Sha256::new();
-            std::io::copy(&mut file, &mut hasher)?;
-            Ok(format!("{:x}", hasher.finalize()))
+            let mut buf = [0u8; 65536];
+            loop {
+                let n = file.read(&mut buf)?;
+                if n == 0 {
+                    break;
+                }
+                hasher.update(&buf[..n]);
+            }
+            Ok(to_hex(&hasher.finalize()))
         }
         HashAlgo::Xxhash => {
             let mut buf = Vec::new();
@@ -50,7 +57,7 @@ fn hash_bytes(data: &[u8], algo: HashAlgo) -> String {
         HashAlgo::Sha256 => {
             let mut hasher = Sha256::new();
             hasher.update(data);
-            format!("{:x}", hasher.finalize())
+            to_hex(&hasher.finalize())
         }
         HashAlgo::Xxhash => {
             let hash = xxhash_rust::xxh3::xxh3_128(data);
@@ -61,4 +68,16 @@ fn hash_bytes(data: &[u8], algo: HashAlgo) -> String {
             hash.to_hex().to_string()
         }
     }
+}
+
+/// Lowercase hex encoding of a digest. sha2 0.11 dropped the `LowerHex`
+/// impl on its output array, so the encoding lives here.
+fn to_hex(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    bytes
+        .iter()
+        .fold(String::with_capacity(bytes.len() * 2), |mut s, b| {
+            let _ = write!(s, "{b:02x}");
+            s
+        })
 }
