@@ -9,7 +9,9 @@
 tag-message = "release v{{version}}"
 tag-prefix = ""
 
-# Don't publish to crates.io during release (do it separately with cargo pub)
+# Publish to crates.io as part of the release. The GitHub release with the
+# prebuilt binaries is not made here: CI builds it from the release commit
+# this pushes (see .github/workflows/ci.yml).
 publish = true
 
 # Push commits and tags to remote
