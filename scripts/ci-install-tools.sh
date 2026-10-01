@@ -14,7 +14,14 @@ set -euo pipefail
 # built (a 20 MB fetch against minutes of compile) into cargo's bin dir,
 # which is on PATH and which rust-cache carries between runs together with
 # the crates install-deps puts there.
-bin="${CARGO_HOME:-${HOME}/.cargo}/bin"
-curl -fsSL https://github.com/veltzer/rsconstruct/releases/latest/download/rsconstruct-linux-x86_64 -o "${bin}/rsconstruct"
-chmod +x "${bin}/rsconstruct"
-rsconstruct tools install-deps
+#
+# Test job only. TARGET is set by ci.yml's build job, which runs nothing but
+# `cargo build --release`: there the crates would be compiled for no caller,
+# once per release target, on a per-target cache that never holds them -
+# an hour per Linux release job when this did run there (run 36876289729).
+if [[ -z "${TARGET:-}" ]]; then
+	bin="${CARGO_HOME:-${HOME}/.cargo}/bin"
+	curl -fsSL https://github.com/veltzer/rsconstruct/releases/latest/download/rsconstruct-linux-x86_64 -o "${bin}/rsconstruct"
+	chmod +x "${bin}/rsconstruct"
+	rsconstruct tools install-deps
+fi
