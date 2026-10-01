@@ -63,14 +63,17 @@ jobs:
           ruby-version: '3.3'
 
       # Every repo owns scripts/ci-install-tools.sh: it installs the system
-      # libraries the build links against and the external tools the tests
-      # shell out to, and is an explicit no-op where there are none. It runs
-      # before the build because build scripts (e.g. -sys crates probing
-      # pkg-config) already need the libraries. The script is required — a
-      # repo without it fails here rather than silently skipping its setup.
-      # Nothing in the script may be best-effort: a tool that cannot be
-      # installed must fail this step instead of surfacing later as a
-      # confusing build or test failure.
+      # libraries the build links against, the external tools the tests
+      # shell out to, and the cargo subcommands the steps below run (cargo
+      # deny, cargo nextest). Those subcommands are never named in this file:
+      # the one list of them is [dependencies] cargo in the repo's
+      # rsconstruct.toml, and the script installs it with `rsconstruct tools
+      # install-deps`. It runs before the build because build scripts (e.g.
+      # -sys crates probing pkg-config) already need the libraries. The
+      # script is required — a repo without it fails here rather than
+      # silently skipping its setup. Nothing in the script may be
+      # best-effort: a tool that cannot be installed must fail this step
+      # instead of surfacing later as a confusing build or test failure.
       # GITHUB_TOKEN is forwarded because tool installation may resolve a
       # download URL from the GitHub releases API (rsconstruct does this for
       # drawio). That API allows 60 requests/hour per source IP when
@@ -93,23 +96,16 @@ jobs:
       # cargo-deny checks Cargo.lock against the RustSec advisory database.
       # A known vulnerability in the locked closure fails the run; the
       # informational classes (unmaintained, unsound, yanked) are reported
-      # as warnings and do not, which is cargo-deny's default. Installed
-      # with cargo so local and CI run the identical command; rust-cache
-      # keeps the built binary between runs.
-      - name: Install cargo-deny
-        run: cargo install cargo-deny --locked
-
+      # as warnings and do not, which is cargo-deny's default. The tool was
+      # installed by the install-tools step above, from rsconstruct.toml;
+      # rust-cache keeps the built binary between runs.
       - name: Deny dependencies
         run: cargo deny check
 
       # cargo-nextest is the fleet's test runner: utils-bash/src/cargo_test.sh
       # runs it locally and .config/nextest.toml carries the shared profile, so
       # CI runs the same runner and local and CI agree on what a passing suite
-      # is. The prebuilt binary comes from nextest's own release channel and,
-      # like rust-toolchain@stable above, tracks the current release.
-      - name: Install cargo-nextest
-        run: curl -LsSf https://get.nexte.st/latest/linux | tar zxf - -C "${CARGO_HOME:-$HOME/.cargo}/bin"
-
+      # is. Installed by the install-tools step above, from rsconstruct.toml.
       # The suite hard-fails on any missing tool (tests never skip), so a
       # gap in the tool setup fails the run loudly instead of shrinking it.
       - name: Run tests
