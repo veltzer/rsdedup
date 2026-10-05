@@ -23,5 +23,5 @@ if [[ -z "${TARGET:-}" ]]; then
 	bin="${CARGO_HOME:-${HOME}/.cargo}/bin"
 	curl -fsSL https://github.com/veltzer/rsconstruct/releases/latest/download/rsconstruct-linux-x86_64 -o "${bin}/rsconstruct"
 	chmod +x "${bin}/rsconstruct"
-	rsconstruct tools install-deps
+	rsconstruct tool install-deps
 fi

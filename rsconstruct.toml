@@ -2,12 +2,12 @@
 #
 # CI (.github/workflows/ci.yml, byte-identical across all rs* repos) runs
 # cargo directly; this file declares what a developer machine needs so that
-# `rsconstruct tools install-deps` and `rsconstruct doctor` can set it up.
+# `rsconstruct tool install-deps` and `rsconstruct doctor` can set it up.
 
 # ─── dependencies ────────────────────────────────────────────────────────────
 
 # The crates every rs* repo's build and release run, installed with
-# `rsconstruct tools install-deps` (cargo install --locked, by crate name).
+# `rsconstruct tool install-deps` (cargo install --locked, by crate name).
 # cargo-deny and cargo-nextest are what the shared ci.yml runs, mdbook builds
 # docs/, and cargo-release reads release.toml. rustfmt and clippy are rustup
 # components, not crates, so they are absent. This block is byte-identical

@@ -67,7 +67,7 @@ jobs:
       # shell out to, and the cargo subcommands the steps below run (cargo
       # deny, cargo nextest). Those subcommands are never named in this file:
       # the one list of them is [dependencies] cargo in the repo's
-      # rsconstruct.toml, and the script installs it with `rsconstruct tools
+      # rsconstruct.toml, and the script installs it with `rsconstruct tool
       # install-deps`. It runs before the build because build scripts (e.g.
       # -sys crates probing pkg-config) already need the libraries. The
       # script is required — a repo without it fails here rather than
