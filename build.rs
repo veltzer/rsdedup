@@ -19,14 +19,19 @@ fn format_epoch(secs: u64) -> String {
     format!("{y:04}-{m:02}-{d:02} {h:02}:{min:02}:{s:02}")
 }
 
-fn git(args: &[&str]) -> String {
+/// `git <args>`'s trimmed stdout, or None when git fails (no repository,
+/// as in `cargo package`'s verify build, or no git at all).
+fn git_opt(args: &[&str]) -> Option<String> {
     Command::new("git")
         .args(args)
         .output()
         .ok()
         .filter(|o| o.status.success())
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_owned())
-        .unwrap_or_else(|| "unknown".to_owned())
+}
+
+fn git(args: &[&str]) -> String {
+    git_opt(args).unwrap_or_else(|| "unknown".to_owned())
 }
 
 fn main() {
@@ -95,15 +100,33 @@ fn main() {
     println!("cargo:rustc-env=BUILD_TIMESTAMP={build_timestamp}");
 
     println!("cargo:rerun-if-changed=Cargo.toml");
-    println!("cargo:rerun-if-changed=.git/HEAD");
-    if let Ok(head) = std::fs::read_to_string(".git/HEAD")
-        && let Some(refpath) = head.trim().strip_prefix("ref: ")
-    {
-        let loose = format!(".git/{refpath}");
-        if std::path::Path::new(&loose).exists() {
-            println!("cargo:rerun-if-changed={loose}");
-        } else {
-            println!("cargo:rerun-if-changed=.git/packed-refs");
+    // Where HEAD and the refs live, asked of git rather than assumed to be
+    // `.git/`: in a linked worktree `.git` is a file, HEAD sits in the
+    // worktree's own git dir and the refs in the common one.
+    if let (Some(git_dir), Some(common_dir)) = (
+        git_opt(&["rev-parse", "--git-dir"]),
+        git_opt(&["rev-parse", "--git-common-dir"]),
+    ) {
+        println!("cargo:rerun-if-changed={git_dir}/HEAD");
+        // Staging or committing flips GIT_DIRTY without touching a source.
+        println!("cargo:rerun-if-changed={git_dir}/index");
+        if let Ok(head) = std::fs::read_to_string(format!("{git_dir}/HEAD"))
+            && let Some(refpath) = head.trim().strip_prefix("ref: ")
+        {
+            let loose = format!("{common_dir}/{refpath}");
+            if std::path::Path::new(&loose).exists() {
+                println!("cargo:rerun-if-changed={loose}");
+            } else {
+                println!("cargo:rerun-if-changed={common_dir}/packed-refs");
+            }
+        }
+    }
+    // GIT_DIRTY (and BUILD_TIMESTAMP with it) must follow edits to any
+    // tracked file, not only ref moves; any rerun-if-changed line switches
+    // off cargo's default of watching the whole package, so name them all.
+    if let Some(files) = git_opt(&["ls-files"]) {
+        for file in files.lines() {
+            println!("cargo:rerun-if-changed={file}");
         }
     }
 }
