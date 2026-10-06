@@ -281,9 +281,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Download all artifacts
+      # The pattern matches only the binaries the build job uploads (named
+      # <repo>-<suffix>). Without it the docs job's GitHub Pages artifact is
+      # downloaded too and every release ships a stray artifact.tar.
+      - name: Download build artifacts
         uses: actions/download-artifact@v8
         with:
+          pattern: ${{ github.event.repository.name }}-*
           path: artifacts
           merge-multiple: true
 
