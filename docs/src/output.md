@@ -6,7 +6,7 @@ rsdedup supports two output formats, selected with `--output <FORMAT>`.
 
 Human-readable output showing duplicate groups and a summary.
 
-```
+```text
 Group 1 — 3 files, 12 bytes each (hash: a948904f2f0f479b):
   /home/user/photos/img001.jpg
   /home/user/photos/backup/img001.jpg

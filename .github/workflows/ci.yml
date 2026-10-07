@@ -2,8 +2,9 @@ name: CI
 
 # This file is byte-identical across all rs* repos. Do not edit it in one
 # repo: edit the canonical copy in rsconstruct and sync it out. Everything
-# repo-specific lives outside this file — scripts/ci-install-tools.sh installs
-# the tools this repo's tests shell out to, and docs/ carries the mdBook.
+# repo-specific lives outside this file — rsconstruct.toml is the build,
+# scripts/ci-install-tools.sh installs the tools it needs, and docs/ carries
+# the mdBook.
 
 # Branch pushes only, deliberately: `cargo release` pushes the release
 # commit and its tag together, and an unfiltered `on: push` turned that
@@ -37,12 +38,6 @@ jobs:
       - name: Cache cargo registry and target
         uses: Swatinem/rust-cache@v2
 
-      # Formatting is a gate, not a suggestion: stock rustfmt (there is no
-      # rustfmt.toml anywhere in the fleet), checked before anything is
-      # compiled because it needs no build and fails fastest.
-      - name: Format check
-        run: cargo fmt --all --check
-
       # Language runtimes come from the standard setup actions. Each installs
       # into the runner's toolcache, which the runner user owns — so the
       # install-tools script below can `pip install` / `npm install -g` /
@@ -64,16 +59,19 @@ jobs:
 
       # Every repo owns scripts/ci-install-tools.sh: it installs the system
       # libraries the build links against, the external tools the tests
-      # shell out to, and the cargo subcommands the steps below run (cargo
-      # deny, cargo nextest). Those subcommands are never named in this file:
-      # the one list of them is [dependencies] cargo in the repo's
-      # rsconstruct.toml, and the script installs it with `rsconstruct tool
-      # install-deps`. It runs before the build because build scripts (e.g.
-      # -sys crates probing pkg-config) already need the libraries. The
-      # script is required — a repo without it fails here rather than
-      # silently skipping its setup. Nothing in the script may be
-      # best-effort: a tool that cannot be installed must fail this step
-      # instead of surfacing later as a confusing build or test failure.
+      # shell out to, the rsconstruct binary the Build step below runs, and
+      # through that binary everything rsconstruct.toml declares — the cargo
+      # subcommands under [dependencies] cargo (cargo deny, cargo nextest)
+      # with `rsconstruct tool install-deps`, and the tools of its enabled
+      # processors (rumdl, ...) with `rsconstruct tool install`. None of
+      # those tools is named in this file: rsconstruct.toml is the one list
+      # of them, so adding a processor never requires touching CI. It runs
+      # before the build because build scripts (e.g. -sys crates probing
+      # pkg-config) already need the libraries. The script is required — a
+      # repo without it fails here rather than silently skipping its setup.
+      # Nothing in the script may be best-effort: a tool that cannot be
+      # installed must fail this step instead of surfacing later as a
+      # confusing build or test failure.
       # GITHUB_TOKEN is forwarded because tool installation may resolve a
       # download URL from the GitHub releases API (rsconstruct does this for
       # drawio). That API allows 60 requests/hour per source IP when
@@ -87,39 +85,21 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./scripts/ci-install-tools.sh
 
+      # The build is rsconstruct.toml, and this step runs it. Every check
+      # this job used to spell out step by step is a processor there —
+      # `cargo fmt --all --check`, `cargo build`, `cargo clippy --all-targets
+      # -- -D warnings`, `cargo deny check`, `cargo nextest run`, and `cargo
+      # test --doc` in the crates that have a src/lib.rs — alongside the
+      # checks that are not cargo at all (rumdl over README.md and docs/src,
+      # the tera templates, whatever else the crate needs). One command here,
+      # one list there: `rsmultigit build` runs the same file on a developer
+      # machine, so a green local build is a green CI run, and a new check is
+      # added to rsconstruct.toml, never to this file. A fresh checkout has
+      # no rsconstruct cache (.rsconstruct/ is not among what rust-cache
+      # keeps), so every processor runs on every push; cargo's own
+      # incremental state in target/ is what the cache carries.
       - name: Build
-        run: cargo build
-
-      - name: Clippy
-        run: cargo clippy --all-targets -- -D warnings
-
-      # cargo-deny checks Cargo.lock against the RustSec advisory database.
-      # A known vulnerability in the locked closure fails the run; the
-      # informational classes (unmaintained, unsound, yanked) are reported
-      # as warnings and do not, which is cargo-deny's default. The tool was
-      # installed by the install-tools step above, from rsconstruct.toml;
-      # rust-cache keeps the built binary between runs.
-      - name: Deny dependencies
-        run: cargo deny check
-
-      # cargo-nextest is the fleet's test runner: utils-bash/src/cargo_test.sh
-      # runs it locally and .config/nextest.toml carries the shared profile, so
-      # CI runs the same runner and local and CI agree on what a passing suite
-      # is. Installed by the install-tools step above, from rsconstruct.toml.
-      # The suite hard-fails on any missing tool (tests never skip), so a
-      # gap in the tool setup fails the run loudly instead of shrinking it.
-      - name: Run tests
-        run: cargo nextest run
-
-      # nextest does not run doctests, so those stay with cargo. Doctests only
-      # exist for library targets, and `cargo test --doc` errors outright on a
-      # binary-only crate ("no library targets found"), so the step runs where
-      # src/lib.rs exists -- which is exactly the set `cargo test` used to run
-      # doctests for. Same presence-guard pattern as the Pages upload in
-      # build.yml: scoping the check to where it applies, not switching it off.
-      - name: Run doctests
-        if: hashFiles('src/lib.rs') != ''
-        run: cargo test --doc
+        run: rsconstruct build
 
   build:
     # is-release: a default-branch push of a `cargo release` commit

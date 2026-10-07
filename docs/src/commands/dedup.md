@@ -2,7 +2,7 @@
 
 Find and act on duplicate files.
 
-```
+```text
 rsdedup dedup <subcommand> [options] [path]
 ```
 

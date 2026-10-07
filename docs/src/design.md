@@ -16,7 +16,7 @@
 
 rsdedup processes files through a multi-stage pipeline where each stage reduces the candidate set:
 
-```
+```text
 1. Scan       →  Walk directories, collect file metadata
 2. Group      →  Group files by size (unique sizes eliminated)
 3. Filter     →  Apply min-size, max-size, include/exclude filters
@@ -26,7 +26,7 @@ rsdedup processes files through a multi-stage pipeline where each stage reduces 
 
 ## Module Structure
 
-```
+```text
 src/
 ├── main.rs       — Orchestration and command dispatch
 ├── cli.rs        — CLI definitions (clap derive)

@@ -6,7 +6,7 @@ rsdedup uses multi-threading to speed up the comparison phase of duplicate detec
 
 The comparison pipeline processes files grouped by size. Each size group is processed independently, which makes it a natural fit for parallelism. rsdedup uses [rayon](https://docs.rs/rayon/) to distribute size groups across a thread pool — multiple size groups are compared concurrently.
 
-```
+```text
 Size group A (all 1 KB files)  ──→  Thread 1
 Size group B (all 5 KB files)  ──→  Thread 2
 Size group C (all 12 KB files) ──→  Thread 3

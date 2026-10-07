@@ -2,7 +2,7 @@
 
 rsdedup uses a two-level subcommand structure:
 
-```
+```text
 rsdedup <command> <subcommand> [options] [path]
 ```
 

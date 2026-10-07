@@ -2,7 +2,7 @@
 
 Manage the persistent hash cache stored at `~/.rsdedup/cache.db`.
 
-```
+```text
 rsdedup cache <subcommand>
 ```
 
@@ -21,7 +21,7 @@ This is useful for warming up the cache before running dedup operations. On subs
 
 The scan command shows timing by default. Use `--no-timing` to suppress it.
 
-```
+```text
 cache location: /home/user/.rsdedup/cache.db
 scanned 1234 files: 100 hashed, 1134 already cached
 elapsed: 2.345s
@@ -45,7 +45,7 @@ rsdedup cache stats
 
 Example output:
 
-```
+```text
 cache location:     /home/user/.rsdedup/cache.db
 total entries:       1234
 database size:       4.50 MB (4718592 bytes)
@@ -69,7 +69,7 @@ rsdedup cache prune
 
 Example output:
 
-```
+```text
 pruned 42 stale entries
 ```
 
