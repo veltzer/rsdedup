@@ -57,21 +57,23 @@ jobs:
         with:
           ruby-version: '3.3'
 
-      # Every repo owns scripts/ci-install-tools.sh: it installs the system
-      # libraries the build links against, the external tools the tests
-      # shell out to, the rsconstruct binary the Build step below runs, and
-      # through that binary everything rsconstruct.toml declares — the cargo
-      # subcommands under [dependencies] cargo (cargo deny, cargo nextest)
-      # with `rsconstruct tool install-deps`, and the tools of its enabled
-      # processors (rumdl, ...) with `rsconstruct tool install`. None of
-      # those tools is named in this file: rsconstruct.toml is the one list
-      # of them, so adding a processor never requires touching CI. It runs
-      # before the build because build scripts (e.g. -sys crates probing
-      # pkg-config) already need the libraries. The script is required — a
-      # repo without it fails here rather than silently skipping its setup.
-      # Nothing in the script may be best-effort: a tool that cannot be
-      # installed must fail this step instead of surfacing later as a
-      # confusing build or test failure.
+      # scripts/ci-install-tools.sh is byte-identical across the rs* repos,
+      # like this file: it installs the rsconstruct binary the Build step
+      # below runs and, through that binary, everything rsconstruct.toml
+      # declares — the cargo subcommands under [dependencies] cargo (cargo
+      # deny, cargo nextest) with `rsconstruct tool install-deps`, and the
+      # tools of its enabled processors (rumdl, ...) with `rsconstruct tool
+      # install`. In between it runs scripts/ci-install-tools.repo.sh, the
+      # one per-repo file: the system libraries this crate links against and
+      # the external tools its tests shell out to, an explicit no-op where
+      # there are none. None of those tools is named in this file:
+      # rsconstruct.toml is the one list of them, so adding a processor
+      # never requires touching CI. It runs before the build because build
+      # scripts (e.g. -sys crates probing pkg-config) already need the
+      # libraries. Both scripts are required — a repo without one fails here
+      # rather than silently skipping its setup. Nothing in them may be
+      # best-effort: a tool that cannot be installed must fail this step
+      # instead of surfacing later as a confusing build or test failure.
       # GITHUB_TOKEN is forwarded because tool installation may resolve a
       # download URL from the GitHub releases API (rsconstruct does this for
       # drawio). That API allows 60 requests/hour per source IP when
