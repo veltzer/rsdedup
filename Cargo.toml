@@ -25,7 +25,24 @@ xxhash-rust = { version = "0.8", features = ["xxh3"] }
 filetime = "0.2"
 tempfile = "3"
 
+# Dev builds favour compile speed: line tables keep file:line in backtraces
+# at a fraction of full debug info's link cost, and dependencies get light
+# optimization once (they rarely change) so tests run faster.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+opt-level = 1
+
+# Everyday release builds: thin LTO keeps most of the gain while using every
+# core. The fully optimized binary is the dist profile below.
 [profile.release]
 strip = true
+lto = "thin"
+
+# What ships: CI's release job builds this (`cargo build --profile dist`).
+# Fat LTO with one codegen unit is slow to build and only worth it here.
+[profile.dist]
+inherits = "release"
 lto = true
 codegen-units = 1

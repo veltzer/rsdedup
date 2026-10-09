@@ -233,10 +233,10 @@ jobs:
       - name: Build
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --profile dist --target ${{ matrix.target }}
 
       - name: Rename binary
-        run: cp target/${{ matrix.target }}/release/${{ github.event.repository.name }} ${{ env.ARTIFACT }}
+        run: cp target/${{ matrix.target }}/dist/${{ github.event.repository.name }} ${{ env.ARTIFACT }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
