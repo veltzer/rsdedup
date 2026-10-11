@@ -27,10 +27,7 @@ cargo = ["cargo-deny", "cargo-nextest", "cargo-release", "mdbook"]
 
 # ─── templating ──────────────────────────────────────────────────────────────
 
-# Convention: tera configs are Lua (config/*.lua). Every dep_auto entry
-# listed here must exist: rsconstruct rejects a missing one at config load.
 [processor.generator.tera]
-dep_auto = ["config/project.lua"]
 src_dirs = ["tera.templates"]
 
 # ─── markdown ────────────────────────────────────────────────────────────────
