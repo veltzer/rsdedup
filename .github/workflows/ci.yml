@@ -317,10 +317,14 @@ jobs:
         with:
           submodules: true
 
+      # taiki-e/install-action is a composite action (shell, no Node
+      # runtime to deprecate) that installs mdBook's prebuilt release binary
+      # after checking its checksum. It replaced peaceiris/actions-mdbook,
+      # whose only release targets the deprecated Node 20.
       - name: Install mdBook
-        uses: peaceiris/actions-mdbook@v2
+        uses: taiki-e/install-action@v2
         with:
-          mdbook-version: latest
+          tool: mdbook
 
       - name: Populate release info page
         run: |
