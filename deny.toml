@@ -24,7 +24,8 @@ ignore = [
     # rustybuzz, same situation: pulled in by krilla and usvg in rsslide.
     { id = "RUSTSEC-2026-0206", reason = "pinned by krilla and usvg; no upstream release without it" },
     # bincode 1 is what syntect's dump-load feature deserialises its bundled
-    # syntaxes with; rsslide needs those syntaxes. Drop when syntect moves.
+    # syntaxes with; rspandoc, rssite and rsslide need those syntaxes. Drop
+    # when syntect moves.
     { id = "RUSTSEC-2025-0141", reason = "pinned by syntect's dump-load feature; no upstream release without it" },
     # clap 2 (with ansi_term and atty) is a build dependency of bindgen 0.59,
     # which fluidlite-sys pins. Build-time only, rsear only. Drop when
