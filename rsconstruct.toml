@@ -21,15 +21,6 @@ reject_dot_src_dirs = true
 [dependencies]
 cargo = ["cargo-deny", "cargo-nextest", "cargo-release", "mdbook"]
 
-# ─── analyzers ───────────────────────────────────────────────────────────────
-
-[analyzer.tera]
-
-# ─── templating ──────────────────────────────────────────────────────────────
-
-[processor.generator.tera]
-src_dirs = ["tera.templates"]
-
 # ─── markdown ────────────────────────────────────────────────────────────────
 
 # rumdl over the README and the mdBook sources, with the fleet-shared
