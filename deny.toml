@@ -21,6 +21,14 @@ ignore = [
     # (ab_glyph) in rsear and rsimagetag, and fontdb/usvg in rsslide. Drop
     # this entry when those upstreams move off it.
     { id = "RUSTSEC-2026-0192", reason = "pinned by eframe (winit/sctk-adwaita/ab_glyph) and fontdb/usvg; no upstream release without it" },
+    # zvariant, zvariant_derive and zbus_names were merged into zbus 6 and
+    # are no longer maintained standalone. They reach the fleet only through
+    # eframe's accessibility stack (accesskit_unix/atspi on zbus 5) in rsear
+    # and rsimagetag; eframe 0.37 still uses them. Drop these entries when
+    # accesskit moves to zbus 6.
+    { id = "RUSTSEC-2026-0370", reason = "zvariant via eframe/accesskit_unix (zbus 5); no upstream release on zbus 6 yet" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names via eframe/accesskit_unix (zbus 5); no upstream release on zbus 6 yet" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive via eframe/accesskit_unix (zbus 5); no upstream release on zbus 6 yet" },
     # rustybuzz, same situation: pulled in by krilla and usvg in rsslide.
     { id = "RUSTSEC-2026-0206", reason = "pinned by krilla and usvg; no upstream release without it" },
     # bincode 1 is what syntect's dump-load feature deserialises its bundled
