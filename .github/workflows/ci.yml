@@ -38,6 +38,21 @@ jobs:
       - name: Cache cargo registry and target
         uses: Swatinem/rust-cache@v2
 
+      # rsconstruct installs the crates and release binaries rsconstruct.lock
+      # pins (cargo-deny, cargo-nextest, rumdl, ...) into its tool store and
+      # links them into the checkout's .rsconstruct/tools; nothing goes into
+      # ~/.cargo/bin, so rust-cache does not carry them. Without this the
+      # crates would be compiled from source on every run. Keyed on the lock:
+      # a hit is exactly the locked set, and after a lock bump the previous
+      # store is restored and only what moved is installed.
+      - name: Cache the rsconstruct tool store
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/rsconstruct/tools
+          key: rsconstruct-tools-${{ runner.os }}-${{ hashFiles('rsconstruct.lock') }}
+          restore-keys: |
+            rsconstruct-tools-${{ runner.os }}-
+
       # Language runtimes come from the standard setup actions. Each installs
       # into the runner's toolcache, which the runner user owns — so the
       # install-tools script below can `pip install` / `npm install -g` /
