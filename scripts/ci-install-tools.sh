@@ -34,12 +34,15 @@ fi
 # a missing one fails here rather than silently skipping its setup.
 ./scripts/ci-install-tools.repo.sh
 
-# `tool install-deps` installs the cargo subcommands rsconstruct.toml declares
-# under [dependencies] cargo (cargo deny, cargo nextest); `tool install`
-# installs the external tools of its enabled processors (rumdl, ...). Nothing
-# here or in ci.yml names a tool: rsconstruct.toml is the fleet's one list of
-# them. Test job only, like the download above.
+# `tool install machine` installs what the project needs on the machine (its
+# [dependencies] system packages, the tools that only come as system
+# packages); `tool install project` then installs everything else into the
+# project from its lockfiles: the cargo subcommands rsconstruct.toml declares
+# under [dependencies] cargo (cargo deny, cargo nextest) and the external
+# tools of its enabled processors (rumdl, ...), into .rsconstruct/tools.
+# Nothing here or in ci.yml names a tool: rsconstruct.toml is the fleet's one
+# list of them. Test job only, like the download above.
 if [[ -z "${TARGET:-}" ]]; then
-	rsconstruct tool install-deps
-	rsconstruct tool install
+	rsconstruct tool install machine
+	rsconstruct tool install project
 fi

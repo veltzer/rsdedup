@@ -75,10 +75,11 @@ jobs:
       # scripts/ci-install-tools.sh is byte-identical across the rs* repos,
       # like this file: it installs the rsconstruct binary the Build step
       # below runs and, through that binary, everything rsconstruct.toml
-      # declares — the cargo subcommands under [dependencies] cargo (cargo
-      # deny, cargo nextest) with `rsconstruct tool install-deps`, and the
-      # tools of its enabled processors (rumdl, ...) with `rsconstruct tool
-      # install`. In between it runs scripts/ci-install-tools.repo.sh, the
+      # declares — what belongs on the machine with `rsconstruct tool install
+      # machine`, then the cargo subcommands under [dependencies] cargo
+      # (cargo deny, cargo nextest) and the tools of its enabled processors
+      # (rumdl, ...) into the project with `rsconstruct tool install
+      # project`. In between it runs scripts/ci-install-tools.repo.sh, the
       # one per-repo file: the system libraries this crate links against and
       # the external tools its tests shell out to, an explicit no-op where
       # there are none. None of those tools is named in this file:
