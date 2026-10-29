@@ -30,10 +30,13 @@ jobs:
         with:
           submodules: true
 
+      # rustup installs exactly the toolchain rust-toolchain.toml pins, with
+      # its components, and nothing else.
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
+        run: |
+          rustup toolchain install --no-self-update
+          echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+          echo "CARGO_TERM_COLOR=always" >> "$GITHUB_ENV"
 
       - name: Cache cargo registry and target
         uses: Swatinem/rust-cache@v2
@@ -167,10 +170,13 @@ jobs:
           REPO="${{ github.event.repository.name }}"
           echo "ARTIFACT=${REPO}-${{ matrix.suffix }}" >> "$GITHUB_ENV"
 
+      # The toolchain rust-toolchain.toml pins, plus this job's target.
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
+        run: |
+          rustup toolchain install --no-self-update
+          rustup target add "${{ matrix.target }}"
+          echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+          echo "CARGO_TERM_COLOR=always" >> "$GITHUB_ENV"
 
       - name: Cache cargo registry and target
         uses: Swatinem/rust-cache@v2

@@ -1,15 +1,11 @@
 # The fleet's Rust toolchain: the stable release the dev laptop runs, pinned
 # exactly so that CI builds, lints and formats with the same rustc, clippy
 # and rustfmt. rustup reads this file and installs the toolchain on first
-# use. The targets are the ones the shared ci.yml release job cross-compiles
-# for. Bump it fleet-wide and regularly, so new lints are not left behind:
-# `rustup update stable`, then copy its version here.
+# use; CI installs it with `rustup toolchain install`, and the release job
+# adds the one cross target it builds. Bump it fleet-wide and regularly, so
+# new lints are not left behind: `rustup update stable`, then copy its
+# version here.
 [toolchain]
 channel = "1.99.1"
 components = ["clippy", "rustfmt"]
-targets = [
-    "aarch64-apple-darwin",
-    "aarch64-unknown-linux-gnu",
-    "x86_64-apple-darwin",
-    "x86_64-unknown-linux-gnu",
-]
+profile = "minimal"
