@@ -35,6 +35,10 @@ ignore = [
     # syntaxes with; rspandoc, rssite and rsslide need those syntaxes. Drop
     # when syntect moves.
     { id = "RUSTSEC-2025-0141", reason = "pinned by syntect's dump-load feature; no upstream release without it" },
+    # paste is a proc-macro rav1e (rssite's AVIF encoder, through image and
+    # ravif) expands at compile time; rav1e 0.8 has no release without it.
+    # rssite only. Drop when rav1e moves to pastey or drops it.
+    { id = "RUSTSEC-2024-0436", reason = "paste, a compile-time macro of rav1e (rssite's AVIF encoder); no rav1e release without it" },
     # clap 2 (with ansi_term and atty) is a build dependency of bindgen 0.59,
     # which fluidlite-sys pins. Build-time only, rsear only. Drop when
     # fluidlite-sys moves to a current bindgen.
@@ -90,6 +94,13 @@ allow = ["LGPL-2.1-only"]
 [[licenses.exceptions]]
 name = "fluidlite-sys"
 allow = ["LGPL-2.1-only"]
+
+# libfuzzer-sys (NCSA, a permissive BSD-style licence) is a dependency of
+# rav1e, rssite's AVIF encoder, only under cfg(fuzzing): it is never built,
+# but cargo-deny reads every cfg. Scoped to the crate, like fluidlite's.
+[[licenses.exceptions]]
+name = "libfuzzer-sys"
+allow = ["NCSA"]
 
 [bans]
 multiple-versions = "warn"
