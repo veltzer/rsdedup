@@ -44,6 +44,17 @@ ignore = [
     # fluidlite-sys moves to a current bindgen.
     { id = "RUSTSEC-2021-0139", reason = "ansi_term via clap 2 via bindgen 0.59, a build dependency pinned by fluidlite-sys" },
     { id = "RUSTSEC-2024-0375", reason = "atty via clap 2 via bindgen 0.59, a build dependency pinned by fluidlite-sys" },
+    # chrono, chrono-tz and chrono-tz-build were declared unmaintained
+    # together (chronotope/chrono#1768); no version is unaffected. tera 1.20
+    # pulls all three in through its `builtins` feature, which also gates
+    # every other built-in filter and function, so it cannot be switched off
+    # on its own (rsconstruct, rspass, rssite); other repos reach chrono
+    # through their own upstreams. Direct uses should move to jiff or time;
+    # drop these entries when tera ships a release without chrono and no
+    # repo's lockfile holds it any more.
+    { id = "RUSTSEC-2026-0543", reason = "chrono, pinned by tera's builtins feature and other upstreams; no release without it" },
+    { id = "RUSTSEC-2026-0555", reason = "chrono-tz via tera's builtins feature; no tera release without it" },
+    { id = "RUSTSEC-2026-0559", reason = "chrono-tz-build, the build script of chrono-tz, via tera's builtins feature" },
 ]
 
 # Only these licenses may appear in the dependency graph. All are
