@@ -29,6 +29,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           submodules: true
+          persist-credentials: false
 
       # rustup installs exactly the toolchain rust-toolchain.toml pins, with
       # its components, and nothing else.
@@ -39,7 +40,7 @@ jobs:
           echo "CARGO_TERM_COLOR=always" >> "$GITHUB_ENV"
 
       - name: Cache cargo registry and target
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
       # rsconstruct installs the crates and release binaries rsconstruct.lock
       # pins (cargo-deny, cargo-nextest, rumdl, ...) into its tool store and
@@ -71,7 +72,7 @@ jobs:
           node-version: '24'
 
       - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@f9c4492e86def3e644ab32a0ef185eda5b0c20d0 # v1.342.0
         with:
           ruby-version: '3.3'
 
@@ -163,23 +164,30 @@ jobs:
         with:
           fetch-depth: 0
           submodules: true
+          persist-credentials: false
 
+      # Expressions reach the scripts of this job as environment variables,
+      # never pasted into the script text, where a value would be read as
+      # shell.
       - name: Set artifact name
         shell: bash
-        run: |
-          REPO="${{ github.event.repository.name }}"
-          echo "ARTIFACT=${REPO}-${{ matrix.suffix }}" >> "$GITHUB_ENV"
+        env:
+          REPO: ${{ github.event.repository.name }}
+          SUFFIX: ${{ matrix.suffix }}
+        run: echo "ARTIFACT=${REPO}-${SUFFIX}" >> "$GITHUB_ENV"
 
       # The toolchain rust-toolchain.toml pins, plus this job's target.
       - name: Install Rust
+        env:
+          TARGET: ${{ matrix.target }}
         run: |
           rustup toolchain install --no-self-update
-          rustup target add "${{ matrix.target }}"
+          rustup target add "$TARGET"
           echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
           echo "CARGO_TERM_COLOR=always" >> "$GITHUB_ENV"
 
       - name: Cache cargo registry and target
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           key: ${{ matrix.target }}
 
@@ -230,7 +238,7 @@ jobs:
 
       - name: Set up Ruby
         if: runner.os == 'Linux'
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@f9c4492e86def3e644ab32a0ef185eda5b0c20d0 # v1.342.0
         with:
           ruby-version: '3.3'
 
@@ -255,10 +263,14 @@ jobs:
       - name: Build
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-        run: cargo build --profile dist --target ${{ matrix.target }}
+          TARGET: ${{ matrix.target }}
+        run: cargo build --profile dist --target "$TARGET"
 
       - name: Rename binary
-        run: cp target/${{ matrix.target }}/dist/${{ github.event.repository.name }} ${{ env.ARTIFACT }}
+        env:
+          REPO: ${{ github.event.repository.name }}
+          TARGET: ${{ matrix.target }}
+        run: cp "target/$TARGET/dist/$REPO" "$ARTIFACT"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
@@ -284,6 +296,8 @@ jobs:
       # It is here only to read the released version out of Cargo.toml.
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       # The pattern matches only the binaries the build job uploads (named
       # <repo>-<suffix>). Without it the docs job's GitHub Pages artifact is
@@ -302,17 +316,23 @@ jobs:
           version="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
           echo "tag=v${version}" >> "$GITHUB_OUTPUT"
 
-      # `cargo release` pushes the signed tag alongside the commit, so by the
-      # time the cross-platform builds finish the tag exists and is used
-      # as-is; target_commitish only matters in the fallback where the tag
-      # push did not arrive and the action creates the tag itself.
+      # The runner's own gh, not a third-party action. `cargo release`
+      # pushes the signed tag alongside the commit, so by the time the
+      # cross-platform builds finish the tag exists and is used as-is;
+      # --target only matters in the fallback where the tag push did not
+      # arrive and the release creates the tag itself. A re-run finds the
+      # release already there and replaces its files.
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ steps.tag.outputs.tag }}
-          target_commitish: ${{ github.sha }}
-          generate_release_notes: true
-          files: artifacts/*
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" artifacts/* --clobber
+          else
+            gh release create "$TAG" artifacts/* --generate-notes --target "$GITHUB_SHA"
+          fi
 
   docs:
     # Deploys on a release (same is-release condition as build) or manually.
@@ -338,13 +358,14 @@ jobs:
         uses: actions/checkout@v7
         with:
           submodules: true
+          persist-credentials: false
 
       # taiki-e/install-action is a composite action (shell, no Node
       # runtime to deprecate) that installs mdBook's prebuilt release binary
       # after checking its checksum. It replaced peaceiris/actions-mdbook,
       # whose only release targets the deprecated Node 20.
       - name: Install mdBook
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
         with:
           tool: mdbook
 

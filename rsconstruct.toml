@@ -73,3 +73,8 @@ args = ["run"]
 
 # No doctest instance: nextest does not run doctests, but `cargo test --doc`
 # errors outright on a binary-only crate, and this crate has no src/lib.rs.
+
+# audit the GitHub Actions workflow files for security problems with zizmor
+# (policy: .github/zizmor.yml)
+[processor.checker.zizmor]
+src_dirs = [".github/workflows"]
