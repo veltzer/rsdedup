@@ -44,6 +44,7 @@ ignore = [
     # fluidlite-sys moves to a current bindgen.
     { id = "RUSTSEC-2021-0139", reason = "ansi_term via clap 2 via bindgen 0.59, a build dependency pinned by fluidlite-sys" },
     { id = "RUSTSEC-2024-0375", reason = "atty via clap 2 via bindgen 0.59, a build dependency pinned by fluidlite-sys" },
+    { id = "RUSTSEC-2026-0542", reason = "humantime via env_logger 0.9 via bindgen 0.59, a build dependency pinned by fluidlite-sys" },
     # chrono, chrono-tz and chrono-tz-build were declared unmaintained
     # together (chronotope/chrono#1768); no version is unaffected. tera 1.20
     # pulls all three in through its `builtins` feature, which also gates
