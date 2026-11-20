@@ -5,8 +5,8 @@
 version = 1
 
 [cargo]
-cargo-deny = "0.20.2"
-cargo-nextest = "0.9.149"
+cargo-deny = "0.22.0"
+cargo-nextest = "0.9.152"
 cargo-release = "1.1.7"
 mdbook = "0.5.4"
 
