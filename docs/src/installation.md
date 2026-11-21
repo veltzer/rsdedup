@@ -16,7 +16,7 @@ cargo install --path .
 
 ## Pre-built binaries
 
-Download pre-built binaries for Linux (x86_64, aarch64), macOS (x86_64, aarch64), and Windows (x86_64) from the [GitHub Releases](https://github.com/veltzer/rsdedup/releases) page.
+Download pre-built binaries for Linux (x86_64, aarch64) from the [GitHub Releases](https://github.com/veltzer/rsdedup/releases) page.
 
 ## Shell completions
 
