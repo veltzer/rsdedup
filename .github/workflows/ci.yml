@@ -95,8 +95,9 @@ jobs:
       # best-effort: a tool that cannot be installed must fail this step
       # instead of surfacing later as a confusing build or test failure.
       # GITHUB_TOKEN is forwarded because tool installation may resolve a
-      # download URL from the GitHub releases API (rsconstruct does this for
-      # drawio). That API allows 60 requests/hour per source IP when
+      # download URL from the GitHub releases API (rsconstruct does this when
+      # it pins a release binary) or fetch from raw.githubusercontent.com
+      # (checkpatch.pl). That API allows 60 requests/hour per source IP when
       # unauthenticated, and hosted runners share egress IPs, so a busy pool
       # fails the step instantly with a 403 (run 33967438754). The token
       # raises the limit to 5000/hour. Harmless where the script makes no
