@@ -17,7 +17,7 @@ pub struct DuplicateGroup {
 }
 
 impl DuplicateGroup {
-    pub fn wasted_bytes(&self) -> u64 {
+    pub const fn wasted_bytes(&self) -> u64 {
         if self.files.len() <= 1 {
             return 0;
         }

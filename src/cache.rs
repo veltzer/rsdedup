@@ -241,7 +241,7 @@ impl HashCache {
     }
 }
 
-fn algo_str(algo: HashAlgo) -> &'static str {
+const fn algo_str(algo: HashAlgo) -> &'static str {
     match algo {
         HashAlgo::Sha256 => "sha256",
         HashAlgo::Xxhash => "xxhash",

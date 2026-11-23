@@ -185,7 +185,7 @@ fn files_equal(a: &std::path::Path, b: &std::path::Path) -> Result<bool> {
     loop {
         let na = fa.read(&mut buf_a)?;
         let nb = fb.read(&mut buf_b)?;
-        if na != nb || buf_a[..na] != buf_b[..nb] {
+        if na != nb || buf_a[..na] != buf_b[..na] {
             return Ok(false);
         }
         if na == 0 {

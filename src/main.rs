@@ -37,8 +37,9 @@ fn format_size(bytes: u64) -> String {
 fn format_timestamp(epoch_secs: u64) -> String {
     use std::time::{Duration, UNIX_EPOCH};
     let time = UNIX_EPOCH + Duration::from_secs(epoch_secs);
-    match time.elapsed() {
-        Ok(ago) => {
+    time.elapsed().map_or_else(
+        |_| "in the future".to_string(),
+        |ago| {
             let secs = ago.as_secs();
             if secs < 60 {
                 format!("{secs}s ago")
@@ -49,9 +50,8 @@ fn format_timestamp(epoch_secs: u64) -> String {
             } else {
                 format!("{}d ago", secs / 86400)
             }
-        }
-        Err(_) => "in the future".to_string(),
-    }
+        },
+    )
 }
 
 fn run_pipeline(path: &std::path::Path, cli: &Cli) -> Result<(Vec<DuplicateGroup>, u64)> {

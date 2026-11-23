@@ -962,11 +962,11 @@ fn delete_three_duplicates_keeps_one() {
         .unwrap();
 
     assert_eq!(output.status.code(), Some(1));
-    let remaining: Vec<_> = ["a.txt", "b.txt", "c.txt"]
+    let remaining = ["a.txt", "b.txt", "c.txt"]
         .iter()
         .filter(|f| dir.path().join(f).exists())
-        .collect();
-    assert_eq!(remaining.len(), 1, "exactly one file should remain");
+        .count();
+    assert_eq!(remaining, 1, "exactly one file should remain");
 }
 
 // --- Hardlink with three duplicates ---
