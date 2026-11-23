@@ -19,11 +19,23 @@ on:
 # Baseline is read-only; jobs that publish (release, docs) elevate their own
 # permissions individually.
 permissions:
-  contents: read
+  contents: read  # check out the repository
 
 jobs:
   test:
+    name: test
     runs-on: ubuntu-26.04
+    # A newer push to the same branch cancels the tests still running for an
+    # older one, as in the rest of the fleet's workflows. A release commit
+    # (see is-release below) gets a group of its own instead: cancelling its
+    # tests would skip its build and release jobs, and the release would be
+    # lost.
+    concurrency:
+      group: >-
+        test-${{ github.ref }}-${{
+        startsWith(github.event.head_commit.message, 'chore: Release ')
+        && github.sha || 'latest' }}
+      cancel-in-progress: true
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -125,6 +137,7 @@ jobs:
         run: rsconstruct build
 
   build:
+    name: build (${{ matrix.target }})
     # is-release: a default-branch push of a `cargo release` commit
     # ("chore: Release <crate> version <x.y.z>"). The tag itself does not
     # trigger CI (see `on:` above), so the release commit's message is the
@@ -282,6 +295,7 @@ jobs:
           path: ${{ env.ARTIFACT }}
 
   release:
+    name: release
     # Same is-release condition as build (see the comment there).
     if: >-
       github.event_name == 'push' &&
@@ -289,7 +303,7 @@ jobs:
       startsWith(github.event.head_commit.message, 'chore: Release ')
     needs: build
     permissions:
-      contents: write
+      contents: write  # create the GitHub release and upload its files
     concurrency:
       group: release-publish
       cancel-in-progress: true
@@ -338,6 +352,7 @@ jobs:
           fi
 
   docs:
+    name: docs
     # Deploys on a release (same is-release condition as build) or manually.
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -346,9 +361,9 @@ jobs:
        startsWith(github.event.head_commit.message, 'chore: Release '))
     needs: test
     permissions:
-      contents: read
-      pages: write
-      id-token: write
+      contents: read  # check out the repository
+      pages: write  # publish the book
+      id-token: write  # prove to Pages that this run is the deployment
     concurrency:
       group: pages
       cancel-in-progress: true

@@ -46,3 +46,9 @@ lto = "thin"
 inherits = "release"
 lto = true
 codegen-units = 1
+
+[lints.clippy]
+# clippy's pedantic group on top of its default lints, for every target of the
+# crate (bins, lib, tests, build script). The gate runs clippy with
+# -D warnings, so each of these fails the build.
+pedantic = { level = "warn", priority = -1 }

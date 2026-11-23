@@ -17,18 +17,18 @@ use compare::find_duplicates;
 use grouper::group_by_size;
 use output::{print_groups, print_summary};
 use scanner::{ScanOptions, scan};
-use types::*;
+use types::{DuplicateGroup, Summary};
 
 fn format_size(bytes: u64) -> String {
     const KB: u64 = 1024;
     const MB: u64 = 1024 * KB;
     const GB: u64 = 1024 * MB;
     if bytes >= GB {
-        format!("{:.2} GB ({bytes} bytes)", bytes as f64 / GB as f64)
+        format!("{} GB ({bytes} bytes)", output::scaled(bytes, GB))
     } else if bytes >= MB {
-        format!("{:.2} MB ({bytes} bytes)", bytes as f64 / MB as f64)
+        format!("{} MB ({bytes} bytes)", output::scaled(bytes, MB))
     } else if bytes >= KB {
-        format!("{:.2} KB ({bytes} bytes)", bytes as f64 / KB as f64)
+        format!("{} KB ({bytes} bytes)", output::scaled(bytes, KB))
     } else {
         format!("{bytes} bytes")
     }
@@ -72,7 +72,7 @@ fn run_pipeline(path: &std::path::Path, cli: &Cli) -> Result<(Vec<DuplicateGroup
     let total_files = entries.len() as u64;
 
     if cli.verbose {
-        eprintln!("found {} files", total_files);
+        eprintln!("found {total_files} files");
     }
 
     let size_groups = group_by_size(entries);
@@ -91,225 +91,221 @@ fn run_pipeline(path: &std::path::Path, cli: &Cli) -> Result<(Vec<DuplicateGroup
     };
 
     let num_jobs = if cli.jobs == 0 {
-        std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(1)
+        std::thread::available_parallelism().map_or(1, std::num::NonZero::get)
     } else {
         cli.jobs
     };
 
     let duplicates = find_duplicates(size_groups, cli.compare, cli.hash, cache.as_ref(), num_jobs)?;
 
-    if let Some(ref c) = cache {
-        let _ = c.flush();
-    }
-
     Ok((duplicates, total_files))
 }
 
+fn finish_dedup(
+    groups: &[DuplicateGroup],
+    total_files: u64,
+    cli: &Cli,
+    action_taken: String,
+    result: &action::ActionResult,
+) -> i32 {
+    let summary = Summary {
+        files_scanned: total_files,
+        duplicate_groups: groups.len() as u64,
+        duplicate_files: groups.iter().map(|g| g.files.len() as u64 - 1).sum(),
+        wasted_bytes: groups.iter().map(types::DuplicateGroup::wasted_bytes).sum(),
+        action_taken,
+        files_affected: result.files_affected,
+        bytes_recovered: result.bytes_recovered,
+    };
+    print_summary(&summary, cli.output);
+    if groups.is_empty() {
+        error::EXIT_NO_DUPES
+    } else {
+        error::EXIT_DUPES_FOUND
+    }
+}
+
+fn label(name: &str, dry_run: bool) -> String {
+    if dry_run {
+        format!("{name} (dry-run)")
+    } else {
+        name.to_string()
+    }
+}
+
 fn run_dedup(action: &DedupAction, cli: &Cli) -> Result<i32> {
-    match action {
-        DedupAction::Report { path } => {
-            let (groups, total_files) = run_pipeline(path, cli)?;
-            let has_dupes = !groups.is_empty();
-            print_groups(&groups, cli.output);
-            let summary = Summary {
-                files_scanned: total_files,
-                duplicate_groups: groups.len() as u64,
-                duplicate_files: groups.iter().map(|g| g.files.len() as u64 - 1).sum(),
-                wasted_bytes: groups.iter().map(|g| g.wasted_bytes()).sum(),
-                action_taken: "report".to_string(),
-                files_affected: 0,
-                bytes_recovered: 0,
-            };
-            print_summary(&summary, cli.output);
-            Ok(if has_dupes {
-                error::EXIT_DUPES_FOUND
-            } else {
-                error::EXIT_NO_DUPES
-            })
+    let (path, dry_run) = match action {
+        DedupAction::Report { path } => (path, false),
+        DedupAction::Delete { path, dry_run, .. }
+        | DedupAction::Hardlink { path, dry_run }
+        | DedupAction::Symlink { path, dry_run } => (path, *dry_run),
+    };
+    let (groups, total_files) = run_pipeline(path, cli)?;
+    if matches!(action, DedupAction::Report { .. }) || cli.verbose || dry_run {
+        print_groups(&groups, cli.output);
+    }
+    let (name, result) = match action {
+        DedupAction::Report { .. } => ("report", action::ActionResult::default()),
+        DedupAction::Delete { keep, .. } => (
+            "delete",
+            action::delete_duplicates(&groups, *keep, dry_run, cli.verbose)?,
+        ),
+        DedupAction::Hardlink { .. } => (
+            "hardlink",
+            action::hardlink_duplicates(&groups, dry_run, cli.verbose)?,
+        ),
+        DedupAction::Symlink { .. } => (
+            "symlink",
+            action::symlink_duplicates(&groups, dry_run, cli.verbose)?,
+        ),
+    };
+    Ok(finish_dedup(
+        &groups,
+        total_files,
+        cli,
+        label(name, dry_run),
+        &result,
+    ))
+}
+
+fn cache_scan(path: &std::path::Path, cli: &Cli) -> Result<i32> {
+    let start = std::time::Instant::now();
+    let scan_opts = ScanOptions {
+        recursive: cli.recursive && !cli.no_recursive,
+        follow_symlinks: cli.follow_symlinks,
+        min_size: cli.min_size,
+        max_size: cli.max_size,
+        include: cli.include.clone(),
+        exclude: cli.exclude.clone(),
+    };
+
+    if cli.verbose {
+        eprintln!("scanning {}...", path.display());
+    }
+
+    let entries = scan(path, &scan_opts)?;
+    let total_files = entries.len() as u64;
+
+    let cache = if cli.no_cache {
+        None
+    } else {
+        HashCache::open().ok()
+    };
+
+    if let Some(ref c) = cache {
+        eprintln!("cache location: {}", c.path().display());
+    }
+
+    let mut cached = 0u64;
+    let mut hashed = 0u64;
+    for entry in &entries {
+        let existing = cache
+            .as_ref()
+            .and_then(|c| c.lookup(&entry.path, cli.hash, &entry.metadata));
+
+        let has_both = existing
+            .as_ref()
+            .is_some_and(|e| e.partial_hash.is_some() && e.full_hash.is_some());
+
+        if has_both {
+            cached += 1;
+            continue;
         }
-        DedupAction::Delete {
-            path,
-            keep,
-            dry_run,
-        } => {
-            let (groups, total_files) = run_pipeline(path, cli)?;
-            let has_dupes = !groups.is_empty();
-            if cli.verbose || *dry_run {
-                print_groups(&groups, cli.output);
+
+        let partial = if existing
+            .as_ref()
+            .and_then(|e| e.partial_hash.as_ref())
+            .is_some()
+        {
+            None
+        } else {
+            hasher::hash_file(&entry.path, cli.hash, true).ok()
+        };
+
+        let full = if existing
+            .as_ref()
+            .and_then(|e| e.full_hash.as_ref())
+            .is_some()
+        {
+            None
+        } else {
+            hasher::hash_file(&entry.path, cli.hash, false).ok()
+        };
+
+        if partial.is_some() || full.is_some() {
+            if let Some(ref c) = cache {
+                let _ = c.store(
+                    &entry.path,
+                    cli.hash,
+                    &entry.metadata,
+                    partial.as_deref(),
+                    full.as_deref(),
+                );
             }
-            let result = action::delete_duplicates(&groups, *keep, *dry_run, cli.verbose)?;
-            let summary = Summary {
-                files_scanned: total_files,
-                duplicate_groups: groups.len() as u64,
-                duplicate_files: groups.iter().map(|g| g.files.len() as u64 - 1).sum(),
-                wasted_bytes: groups.iter().map(|g| g.wasted_bytes()).sum(),
-                action_taken: if *dry_run {
-                    "delete (dry-run)".to_string()
-                } else {
-                    "delete".to_string()
-                },
-                files_affected: result.files_affected,
-                bytes_recovered: result.bytes_recovered,
-            };
-            print_summary(&summary, cli.output);
-            Ok(if has_dupes {
-                error::EXIT_DUPES_FOUND
-            } else {
-                error::EXIT_NO_DUPES
-            })
-        }
-        DedupAction::Hardlink { path, dry_run } => {
-            let (groups, total_files) = run_pipeline(path, cli)?;
-            let has_dupes = !groups.is_empty();
-            if cli.verbose || *dry_run {
-                print_groups(&groups, cli.output);
-            }
-            let result = action::hardlink_duplicates(&groups, *dry_run, cli.verbose)?;
-            let summary = Summary {
-                files_scanned: total_files,
-                duplicate_groups: groups.len() as u64,
-                duplicate_files: groups.iter().map(|g| g.files.len() as u64 - 1).sum(),
-                wasted_bytes: groups.iter().map(|g| g.wasted_bytes()).sum(),
-                action_taken: if *dry_run {
-                    "hardlink (dry-run)".to_string()
-                } else {
-                    "hardlink".to_string()
-                },
-                files_affected: result.files_affected,
-                bytes_recovered: result.bytes_recovered,
-            };
-            print_summary(&summary, cli.output);
-            Ok(if has_dupes {
-                error::EXIT_DUPES_FOUND
-            } else {
-                error::EXIT_NO_DUPES
-            })
-        }
-        DedupAction::Symlink { path, dry_run } => {
-            let (groups, total_files) = run_pipeline(path, cli)?;
-            let has_dupes = !groups.is_empty();
-            if cli.verbose || *dry_run {
-                print_groups(&groups, cli.output);
-            }
-            let result = action::symlink_duplicates(&groups, *dry_run, cli.verbose)?;
-            let summary = Summary {
-                files_scanned: total_files,
-                duplicate_groups: groups.len() as u64,
-                duplicate_files: groups.iter().map(|g| g.files.len() as u64 - 1).sum(),
-                wasted_bytes: groups.iter().map(|g| g.wasted_bytes()).sum(),
-                action_taken: if *dry_run {
-                    "symlink (dry-run)".to_string()
-                } else {
-                    "symlink".to_string()
-                },
-                files_affected: result.files_affected,
-                bytes_recovered: result.bytes_recovered,
-            };
-            print_summary(&summary, cli.output);
-            Ok(if has_dupes {
-                error::EXIT_DUPES_FOUND
-            } else {
-                error::EXIT_NO_DUPES
-            })
+            hashed += 1;
+        } else if existing.is_none() {
+            eprintln!("warning: failed to hash {}", entry.path.display());
         }
     }
+
+    eprintln!("scanned {total_files} files: {hashed} hashed, {cached} already cached");
+    if !cli.no_timing {
+        let elapsed = start.elapsed();
+        eprintln!("elapsed: {:.3}s", elapsed.as_secs_f64());
+    }
+    Ok(error::EXIT_SUCCESS)
+}
+
+fn cache_stats() -> Result<i32> {
+    let cache = HashCache::open()?;
+    let stats = cache.stats()?;
+    println!("cache location:     {}", cache.path().display());
+    println!("total entries:       {}", stats.entries);
+    println!("database size:       {}", format_size(stats.db_size));
+    println!(
+        "total file size:     {}",
+        format_size(stats.total_file_size)
+    );
+    println!("with partial hash:   {}", stats.with_partial);
+    println!("with full hash:      {}", stats.with_full);
+    println!("stale (file gone):   {}", stats.stale);
+    if let Some(oldest) = stats.oldest_timestamp {
+        println!("oldest entry:        {}", format_timestamp(oldest));
+    }
+    if let Some(newest) = stats.newest_timestamp {
+        println!("newest entry:        {}", format_timestamp(newest));
+    }
+    if !stats.algo_counts.is_empty() {
+        println!("hash algorithms:");
+        let mut algos: Vec<_> = stats.algo_counts.iter().collect();
+        algos.sort_by(|a, b| b.1.cmp(a.1));
+        for (algo, count) in algos {
+            println!("  {algo}: {count}");
+        }
+    }
+    Ok(error::EXIT_SUCCESS)
+}
+
+fn cache_list() -> Result<i32> {
+    let cache = HashCache::open()?;
+    println!("path\tsize\talgo\tpartial_hash\tfull_hash\tcached_at");
+    for (path, entry) in cache.iter() {
+        println!(
+            "{}\t{}\t{}\t{}\t{}\t{}",
+            path,
+            entry.size,
+            entry.hash_algo,
+            entry.partial_hash.as_deref().unwrap_or(""),
+            entry.full_hash.as_deref().unwrap_or(""),
+            entry.cached_at,
+        );
+    }
+    Ok(error::EXIT_SUCCESS)
 }
 
 fn run_cache(action: &CacheAction, cli: &Cli) -> Result<i32> {
     match action {
-        CacheAction::Scan { path } => {
-            let start = std::time::Instant::now();
-            let scan_opts = ScanOptions {
-                recursive: cli.recursive && !cli.no_recursive,
-                follow_symlinks: cli.follow_symlinks,
-                min_size: cli.min_size,
-                max_size: cli.max_size,
-                include: cli.include.clone(),
-                exclude: cli.exclude.clone(),
-            };
-
-            if cli.verbose {
-                eprintln!("scanning {}...", path.display());
-            }
-
-            let entries = scan(path, &scan_opts)?;
-            let total_files = entries.len() as u64;
-
-            let cache = if cli.no_cache {
-                None
-            } else {
-                HashCache::open().ok()
-            };
-
-            if let Some(ref c) = cache {
-                eprintln!("cache location: {}", c.path().display());
-            }
-
-            let mut cached = 0u64;
-            let mut hashed = 0u64;
-            for entry in &entries {
-                let existing = cache
-                    .as_ref()
-                    .and_then(|c| c.lookup(&entry.path, cli.hash, &entry.metadata));
-
-                let has_both = existing
-                    .as_ref()
-                    .is_some_and(|e| e.partial_hash.is_some() && e.full_hash.is_some());
-
-                if has_both {
-                    cached += 1;
-                    continue;
-                }
-
-                let partial = if existing
-                    .as_ref()
-                    .and_then(|e| e.partial_hash.as_ref())
-                    .is_some()
-                {
-                    None
-                } else {
-                    hasher::hash_file(&entry.path, cli.hash, true).ok()
-                };
-
-                let full = if existing
-                    .as_ref()
-                    .and_then(|e| e.full_hash.as_ref())
-                    .is_some()
-                {
-                    None
-                } else {
-                    hasher::hash_file(&entry.path, cli.hash, false).ok()
-                };
-
-                if partial.is_some() || full.is_some() {
-                    if let Some(ref c) = cache {
-                        let _ = c.store(
-                            &entry.path,
-                            cli.hash,
-                            &entry.metadata,
-                            partial.as_deref(),
-                            full.as_deref(),
-                        );
-                    }
-                    hashed += 1;
-                } else if existing.is_none() {
-                    eprintln!("warning: failed to hash {}", entry.path.display());
-                }
-            }
-
-            if let Some(ref c) = cache {
-                let _ = c.flush();
-            }
-
-            eprintln!("scanned {total_files} files: {hashed} hashed, {cached} already cached");
-            if !cli.no_timing {
-                let elapsed = start.elapsed();
-                eprintln!("elapsed: {:.3}s", elapsed.as_secs_f64());
-            }
-            Ok(error::EXIT_SUCCESS)
-        }
+        CacheAction::Scan { path } => cache_scan(path, cli),
         CacheAction::Clear => {
             let cache = HashCache::open()?;
             eprintln!("cache location: {}", cache.path().display());
@@ -317,51 +313,8 @@ fn run_cache(action: &CacheAction, cli: &Cli) -> Result<i32> {
             eprintln!("cache cleared");
             Ok(error::EXIT_SUCCESS)
         }
-        CacheAction::Stats => {
-            let cache = HashCache::open()?;
-            let stats = cache.stats()?;
-            println!("cache location:     {}", cache.path().display());
-            println!("total entries:       {}", stats.entries);
-            println!("database size:       {}", format_size(stats.db_size));
-            println!(
-                "total file size:     {}",
-                format_size(stats.total_file_size)
-            );
-            println!("with partial hash:   {}", stats.with_partial);
-            println!("with full hash:      {}", stats.with_full);
-            println!("stale (file gone):   {}", stats.stale);
-            if let Some(oldest) = stats.oldest_timestamp {
-                println!("oldest entry:        {}", format_timestamp(oldest));
-            }
-            if let Some(newest) = stats.newest_timestamp {
-                println!("newest entry:        {}", format_timestamp(newest));
-            }
-            if !stats.algo_counts.is_empty() {
-                println!("hash algorithms:");
-                let mut algos: Vec<_> = stats.algo_counts.iter().collect();
-                algos.sort_by(|a, b| b.1.cmp(a.1));
-                for (algo, count) in algos {
-                    println!("  {algo}: {count}");
-                }
-            }
-            Ok(error::EXIT_SUCCESS)
-        }
-        CacheAction::List => {
-            let cache = HashCache::open()?;
-            println!("path\tsize\talgo\tpartial_hash\tfull_hash\tcached_at");
-            for (path, entry) in cache.iter() {
-                println!(
-                    "{}\t{}\t{}\t{}\t{}\t{}",
-                    path,
-                    entry.size,
-                    entry.hash_algo,
-                    entry.partial_hash.as_deref().unwrap_or(""),
-                    entry.full_hash.as_deref().unwrap_or(""),
-                    entry.cached_at,
-                );
-            }
-            Ok(error::EXIT_SUCCESS)
-        }
+        CacheAction::Stats => cache_stats(),
+        CacheAction::List => cache_list(),
         CacheAction::Prune => {
             let cache = HashCache::open()?;
             let removed = cache.prune()?;
@@ -374,12 +327,9 @@ fn run_cache(action: &CacheAction, cli: &Cli) -> Result<i32> {
 fn main() {
     let cli = Cli::parse();
 
-    let command = match cli.command {
-        Some(ref cmd) => cmd,
-        None => {
-            Cli::print_short_help();
-            error::exit_with(error::EXIT_SUCCESS);
-        }
+    let Some(ref command) = cli.command else {
+        Cli::print_short_help();
+        error::exit_with(error::EXIT_SUCCESS);
     };
 
     let result: Result<i32> = match command {

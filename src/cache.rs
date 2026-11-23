@@ -75,7 +75,7 @@ impl HashCache {
         let mtime = metadata.modified().ok()?.duration_since(UNIX_EPOCH).ok()?;
 
         if entry.size != metadata.len()
-            || entry.mtime_secs != mtime.as_secs() as i64
+            || entry.mtime_secs != mtime.as_secs().cast_signed()
             || entry.mtime_nanos != mtime.subsec_nanos()
             || entry.inode != metadata.ino()
         {
@@ -108,15 +108,15 @@ impl HashCache {
 
         let entry = CacheEntry {
             size: metadata.len(),
-            mtime_secs: mtime.as_secs() as i64,
+            mtime_secs: mtime.as_secs().cast_signed(),
             mtime_nanos: mtime.subsec_nanos(),
             inode: metadata.ino(),
             hash_algo: algo_str(algo).to_string(),
             partial_hash: partial_hash
-                .map(|s| s.to_string())
+                .map(std::string::ToString::to_string)
                 .or_else(|| existing.as_ref().and_then(|e| e.partial_hash.clone())),
             full_hash: full_hash
-                .map(|s| s.to_string())
+                .map(std::string::ToString::to_string)
                 .or_else(|| existing.as_ref().and_then(|e| e.full_hash.clone())),
             cached_at: now,
         };
@@ -234,12 +234,6 @@ impl HashCache {
 
     pub fn path(&self) -> &Path {
         &self.db_path
-    }
-
-    /// Every write is committed durably by redb, so there is nothing to flush;
-    /// kept so callers do not need to know which store is behind the cache.
-    pub fn flush(&self) -> Result<()> {
-        Ok(())
     }
 
     fn make_key(path: &Path) -> String {

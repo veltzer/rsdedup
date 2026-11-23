@@ -28,11 +28,13 @@ pub fn find_duplicates(
         size_groups
             .into_par_iter()
             .map(|group| match method {
-                CompareMethod::SizeHash => find_dupes_size_hash(group, algo, cache_mutex.as_ref()),
-                CompareMethod::Hash => find_dupes_hash(group, algo, cache_mutex.as_ref()),
+                CompareMethod::SizeHash => {
+                    Ok(find_dupes_size_hash(group, algo, cache_mutex.as_ref()))
+                }
+                CompareMethod::Hash => Ok(find_dupes_hash(group, algo, cache_mutex.as_ref())),
                 CompareMethod::ByteForByte => find_dupes_byte_for_byte(group),
             })
-            .filter_map(|r| r.ok())
+            .filter_map(std::result::Result::ok)
             .collect()
     });
 
@@ -75,7 +77,7 @@ fn find_dupes_size_hash(
     group: Vec<FileEntry>,
     algo: HashAlgo,
     cache_mutex: Option<&Mutex<&HashCache>>,
-) -> Result<Vec<DuplicateGroup>> {
+) -> Vec<DuplicateGroup> {
     // Phase 1: partial hash to narrow candidates
     let mut partial_map: HashMap<String, Vec<FileEntry>> = HashMap::new();
     for entry in group {
@@ -119,14 +121,14 @@ fn find_dupes_size_hash(
         }
     }
 
-    Ok(result)
+    result
 }
 
 fn find_dupes_hash(
     group: Vec<FileEntry>,
     algo: HashAlgo,
     cache_mutex: Option<&Mutex<&HashCache>>,
-) -> Result<Vec<DuplicateGroup>> {
+) -> Vec<DuplicateGroup> {
     let mut hash_map: HashMap<String, Vec<FileEntry>> = HashMap::new();
     for entry in group {
         let (_, cached_full) = cache_lookup(cache_mutex, &entry, algo);
@@ -140,7 +142,7 @@ fn find_dupes_hash(
         hash_map.entry(hash).or_default().push(entry);
     }
 
-    Ok(hash_map
+    hash_map
         .into_iter()
         .filter(|(_, files)| files.len() > 1)
         .map(|(hash, files)| DuplicateGroup {
@@ -148,7 +150,7 @@ fn find_dupes_hash(
             hash,
             files,
         })
-        .collect())
+        .collect()
 }
 
 fn find_dupes_byte_for_byte(group: Vec<FileEntry>) -> Result<Vec<DuplicateGroup>> {
@@ -178,8 +180,8 @@ fn find_dupes_byte_for_byte(group: Vec<FileEntry>) -> Result<Vec<DuplicateGroup>
 fn files_equal(a: &std::path::Path, b: &std::path::Path) -> Result<bool> {
     let mut fa = File::open(a)?;
     let mut fb = File::open(b)?;
-    let mut buf_a = [0u8; 65536];
-    let mut buf_b = [0u8; 65536];
+    let mut buf_a = vec![0u8; 65536];
+    let mut buf_b = vec![0u8; 65536];
     loop {
         let na = fa.read(&mut buf_a)?;
         let nb = fb.read(&mut buf_b)?;

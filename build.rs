@@ -3,20 +3,20 @@ use std::process::Command;
 /// Format a unix timestamp as "YYYY-MM-DD HH:MM:SS" (UTC) without external
 /// dependencies (build.rs has none). Howard Hinnant's civil-from-days.
 fn format_epoch(secs: u64) -> String {
-    let days = (secs / 86_400) as i64;
+    let days = (secs / 86_400).cast_signed();
     let rem = secs % 86_400;
-    let (h, min, s) = (rem / 3600, (rem % 3600) / 60, rem % 60);
+    let (hour, minute, second) = (rem / 3600, (rem % 3600) / 60, rem % 60);
     let z = days + 719_468;
     let era = z.div_euclid(146_097);
     let doe = z.rem_euclid(146_097);
     let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let y = yoe + era * 400;
+    let year = yoe + era * 400;
     let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
     let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 };
-    let y = if m <= 2 { y + 1 } else { y };
-    format!("{y:04}-{m:02}-{d:02} {h:02}:{min:02}:{s:02}")
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = if month <= 2 { year + 1 } else { year };
+    format!("{year:04}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}")
 }
 
 /// `git <args>`'s trimmed stdout, or None when git fails (no repository,
@@ -46,7 +46,7 @@ fn main() {
         .filter(|o| o.status.success())
         .and_then(|o| {
             let s = String::from_utf8_lossy(&o.stdout).to_string();
-            s.split_whitespace().nth(1).map(|v| v.to_owned())
+            s.split_whitespace().nth(1).map(str::to_owned)
         })
         .unwrap_or_else(|| "unknown".to_owned());
 

@@ -29,6 +29,53 @@ pub struct Cli {
     #[arg(long, global = true, hide_short_help = true)]
     pub max_size: Option<u64>,
 
+    /// Output format
+    #[arg(long, value_enum, default_value_t = OutputFormat::Text, global = true, hide_short_help = true)]
+    pub output: OutputFormat,
+
+    /// Number of parallel workers (0 = all CPUs)
+    #[arg(
+        short,
+        long,
+        default_value_t = 1,
+        global = true,
+        hide_short_help = true
+    )]
+    pub jobs: usize,
+
+    /// Exclude files matching glob pattern (can be repeated)
+    #[arg(long, global = true, hide_short_help = true)]
+    pub exclude: Vec<String>,
+
+    /// Only include files matching glob pattern (can be repeated)
+    #[arg(long, global = true, hide_short_help = true)]
+    pub include: Vec<String>,
+
+    /// Verbose output
+    #[arg(
+        short,
+        long,
+        default_value_t = false,
+        global = true,
+        hide_short_help = true
+    )]
+    pub verbose: bool,
+
+    /// Disable the hash cache
+    #[arg(long, default_value_t = false, global = true, hide_short_help = true)]
+    pub no_cache: bool,
+
+    /// Disable timing output
+    #[arg(long, default_value_t = false, global = true, hide_short_help = true)]
+    pub no_timing: bool,
+
+    #[command(flatten)]
+    pub flags: ScanFlags,
+}
+
+/// Global scan switches, grouped so `Cli` stays small.
+#[derive(clap::Args)]
+pub struct ScanFlags {
     /// Recurse into subdirectories
     #[arg(
         short,
@@ -46,46 +93,14 @@ pub struct Cli {
     /// Follow symbolic links
     #[arg(long, default_value_t = false, global = true, hide_short_help = true)]
     pub follow_symlinks: bool,
+}
 
-    /// Verbose output
-    #[arg(
-        short,
-        long,
-        default_value_t = false,
-        global = true,
-        hide_short_help = true
-    )]
-    pub verbose: bool,
+impl std::ops::Deref for Cli {
+    type Target = ScanFlags;
 
-    /// Output format
-    #[arg(long, value_enum, default_value_t = OutputFormat::Text, global = true, hide_short_help = true)]
-    pub output: OutputFormat,
-
-    /// Number of parallel workers (0 = all CPUs)
-    #[arg(
-        short,
-        long,
-        default_value_t = 1,
-        global = true,
-        hide_short_help = true
-    )]
-    pub jobs: usize,
-
-    /// Disable the hash cache
-    #[arg(long, default_value_t = false, global = true, hide_short_help = true)]
-    pub no_cache: bool,
-
-    /// Disable timing output
-    #[arg(long, default_value_t = false, global = true, hide_short_help = true)]
-    pub no_timing: bool,
-
-    /// Exclude files matching glob pattern (can be repeated)
-    #[arg(long, global = true, hide_short_help = true)]
-    pub exclude: Vec<String>,
-
-    /// Only include files matching glob pattern (can be repeated)
-    #[arg(long, global = true, hide_short_help = true)]
-    pub include: Vec<String>,
+    fn deref(&self) -> &ScanFlags {
+        &self.flags
+    }
 }
 
 impl Cli {

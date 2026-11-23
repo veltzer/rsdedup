@@ -5,6 +5,7 @@ use std::os::unix::fs::MetadataExt;
 
 use crate::types::{DuplicateGroup, FileEntry, KeepStrategy};
 
+#[derive(Default)]
 pub struct ActionResult {
     pub files_affected: u64,
     pub bytes_recovered: u64,
@@ -224,20 +225,17 @@ fn split_group(files: &[FileEntry], strategy: KeepStrategy) -> (&FileEntry, Vec<
             .iter()
             .enumerate()
             .max_by_key(|(_, f)| f.metadata.modified().ok())
-            .map(|(i, _)| i)
-            .unwrap_or(0),
+            .map_or(0, |(i, _)| i),
         KeepStrategy::Oldest => files
             .iter()
             .enumerate()
             .min_by_key(|(_, f)| f.metadata.modified().ok())
-            .map(|(i, _)| i)
-            .unwrap_or(0),
+            .map_or(0, |(i, _)| i),
         KeepStrategy::ShortestPath => files
             .iter()
             .enumerate()
             .min_by_key(|(_, f)| f.path.as_os_str().len())
-            .map(|(i, _)| i)
-            .unwrap_or(0),
+            .map_or(0, |(i, _)| i),
     };
 
     let keeper = &files[keeper_idx];

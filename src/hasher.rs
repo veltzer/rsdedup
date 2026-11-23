@@ -21,7 +21,7 @@ pub fn hash_file(path: &Path, algo: HashAlgo, partial: bool) -> Result<String> {
     match algo {
         HashAlgo::Sha256 => {
             let mut hasher = Sha256::new();
-            let mut buf = [0u8; 65536];
+            let mut buf = vec![0u8; 65536];
             loop {
                 let n = file.read(&mut buf)?;
                 if n == 0 {
@@ -39,7 +39,7 @@ pub fn hash_file(path: &Path, algo: HashAlgo, partial: bool) -> Result<String> {
         }
         HashAlgo::Blake3 => {
             let mut hasher = blake3::Hasher::new();
-            let mut buf = [0u8; 65536];
+            let mut buf = vec![0u8; 65536];
             loop {
                 let n = file.read(&mut buf)?;
                 if n == 0 {

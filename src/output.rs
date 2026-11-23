@@ -77,6 +77,19 @@ pub fn print_summary(summary: &Summary, format: OutputFormat) {
     }
 }
 
+/// `bytes / unit` rendered with two decimals (round half to even), using
+/// integer arithmetic so no `u64` -> `f64` precision-losing cast is needed.
+pub fn scaled(bytes: u64, unit: u64) -> String {
+    let num = u128::from(bytes) * 100;
+    let den = u128::from(unit);
+    let mut q = num / den;
+    let r = num % den;
+    if r * 2 > den || (r * 2 == den && q % 2 == 1) {
+        q += 1;
+    }
+    format!("{}.{:02}", q / 100, q % 100)
+}
+
 fn format_bytes(bytes: u64) -> String {
     const KB: u64 = 1024;
     const MB: u64 = 1024 * KB;
@@ -84,13 +97,13 @@ fn format_bytes(bytes: u64) -> String {
     const TB: u64 = 1024 * GB;
 
     if bytes >= TB {
-        format!("{:.2} TB", bytes as f64 / TB as f64)
+        format!("{} TB", scaled(bytes, TB))
     } else if bytes >= GB {
-        format!("{:.2} GB", bytes as f64 / GB as f64)
+        format!("{} GB", scaled(bytes, GB))
     } else if bytes >= MB {
-        format!("{:.2} MB", bytes as f64 / MB as f64)
+        format!("{} MB", scaled(bytes, MB))
     } else if bytes >= KB {
-        format!("{:.2} KB", bytes as f64 / KB as f64)
+        format!("{} KB", scaled(bytes, KB))
     } else {
         format!("{bytes} bytes")
     }
