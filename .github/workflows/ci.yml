@@ -1,3 +1,4 @@
+---
 name: CI
 
 # This file is byte-identical across all rs* repos. Do not edit it in one
@@ -11,7 +12,7 @@ name: CI
 # into two identically-titled runs. The release pipeline runs from the
 # default-branch push of the release commit (see is-release below); the
 # tag push triggers nothing.
-on:
+"on":
   push:
     branches: ['**']
   workflow_dispatch:
@@ -52,7 +53,7 @@ jobs:
           echo "CARGO_TERM_COLOR=always" >> "$GITHUB_ENV"
 
       - name: Cache cargo registry and target
-        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
 
       # rsconstruct installs the crates and release binaries rsconstruct.lock
       # pins (cargo-deny, cargo-nextest, rumdl, ...) into its tool store and
@@ -84,7 +85,7 @@ jobs:
           node-version: '24'
 
       - name: Set up Ruby
-        uses: ruby/setup-ruby@f9c4492e86def3e644ab32a0ef185eda5b0c20d0 # v1.342.0
+        uses: ruby/setup-ruby@f9c4492e86def3e644ab32a0ef185eda5b0c20d0  # v1.342.0
         with:
           ruby-version: '3.3'
 
@@ -158,12 +159,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-26.04
-            suffix: linux-x86_64
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-26.04
-            suffix: linux-aarch64
           # macOS (darwin) binaries are no longer built or released. To bring
           # them back, uncomment these two entries.
           # - target: x86_64-apple-darwin
@@ -172,6 +167,12 @@ jobs:
           # - target: aarch64-apple-darwin
           #   os: macos-latest
           #   suffix: macos-aarch64
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-26.04
+            suffix: linux-x86_64
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-26.04
+            suffix: linux-aarch64
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -203,7 +204,7 @@ jobs:
           echo "CARGO_TERM_COLOR=always" >> "$GITHUB_ENV"
 
       - name: Cache cargo registry and target
-        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
         with:
           key: ${{ matrix.target }}
 
@@ -230,7 +231,8 @@ jobs:
         run: |
           mkdir -p ~/.cache/apt-archives/partial
           sudo apt-get -o Acquire::Retries=3 update
-          sudo apt-get -o Acquire::Retries=3 -o Dir::Cache::Archives="$HOME/.cache/apt-archives" install -y gcc-aarch64-linux-gnu
+          sudo apt-get -o Acquire::Retries=3 -o Dir::Cache::Archives="$HOME/.cache/apt-archives" \
+            install -y gcc-aarch64-linux-gnu
           sudo chown -R "$USER" ~/.cache/apt-archives
 
       # The install script needs the same runtimes the test job sets up, for
@@ -254,7 +256,7 @@ jobs:
 
       - name: Set up Ruby
         if: runner.os == 'Linux'
-        uses: ruby/setup-ruby@f9c4492e86def3e644ab32a0ef185eda5b0c20d0 # v1.342.0
+        uses: ruby/setup-ruby@f9c4492e86def3e644ab32a0ef185eda5b0c20d0  # v1.342.0
         with:
           ruby-version: '3.3'
 
@@ -383,7 +385,7 @@ jobs:
       # after checking its checksum. It replaced peaceiris/actions-mdbook,
       # whose only release targets the deprecated Node 20.
       - name: Install mdBook
-        uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+        uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f  # v2.90.6
         with:
           tool: mdbook
 
