@@ -83,6 +83,20 @@ dep_inputs = ["target/debug/rsdedup"]
 # No doctest instance: nextest does not run doctests, but `cargo test --doc`
 # errors outright on a binary-only crate, and this crate has no src/lib.rs.
 
+# lint the TOML files of the repo with taplo
+[processor.checker.taplo]
+src_files = [".rumdl.toml", "Cargo.toml", "deny.toml", "release.toml", "rsconstruct.toml", "rust-toolchain.toml"]
+
+# lint the shell scripts with shellcheck (policy: .shellcheckrc)
+[processor.checker.ishellcheck]
+src_dirs = ["scripts"]
+src_extensions = [".sh"]
+shell = "bash"
+
+# lint the GitHub Actions workflow files with actionlint
+[processor.checker.iactionlint]
+src_dirs = [".github/workflows"]
+
 # audit the GitHub Actions workflow files for security problems with zizmor
 # (policy: .github/zizmor.yml)
 [processor.checker.zizmor]
