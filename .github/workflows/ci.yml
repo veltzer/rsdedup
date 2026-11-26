@@ -397,7 +397,6 @@ jobs:
           tag="v${version}"
           commit="${GITHUB_SHA}"
           released_at="$(date -u +'%Y-%m-%d %H:%M:%S UTC')"
-          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           file="docs/src/release-info.md"
           sed -i \
             -e "s|__VERSION__|${version}|g" \
@@ -406,7 +405,8 @@ jobs:
             -e "s|__RELEASE_DATE__|${released_at}|g" \
             -e "s|__WORKFLOW_NAME__|${GITHUB_WORKFLOW}|g" \
             -e "s|__WORKFLOW_RUN_NUMBER__|${GITHUB_RUN_NUMBER}|g" \
-            -e "s|__WORKFLOW_RUN_URL__|${run_url}|g" \
+            -e "s|__GITHUB_REPOSITORY__|${GITHUB_REPOSITORY}|g" \
+            -e "s|__WORKFLOW_RUN_ID__|${GITHUB_RUN_ID}|g" \
             "${file}"
 
       - name: Build book
