@@ -84,7 +84,7 @@ rsdedup cache list
 Output columns:
 
 | Column | Description |
-|--------|-------------|
+| -------- | ------------- |
 | `path` | File path |
 | `size` | File size in bytes |
 | `algo` | Hash algorithm used |

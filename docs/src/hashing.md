@@ -31,7 +31,7 @@ rsdedup dedup report --hash blake3
 ## Comparison
 
 | Algorithm | Type | Output | Speed | Security |
-|-----------|------|--------|-------|----------|
+| ----------- | ------ | -------- | ------- | ---------- |
 | SHA-256 | Cryptographic | 256-bit | Moderate | High |
 | xxHash | Non-cryptographic | 128-bit | Very fast | None |
 | BLAKE3 | Cryptographic | 256-bit | Fast | High |

@@ -72,7 +72,7 @@ rsdedup version
 ## Subcommands
 
 | Command | Description |
-|---------|-------------|
+| --------- | ------------- |
 | `report` | Find and list duplicate files (read-only) |
 | `delete` | Remove duplicate files, keeping one per group |
 | `hardlink` | Replace duplicates with hardlinks |
@@ -99,7 +99,7 @@ most non-duplicates, and only remaining candidates get a full hash.
 ## Exit Codes
 
 | Code | Meaning |
-|------|---------|
+| ------ | --------- |
 | `0` | No duplicates found |
 | `1` | Duplicates found |
 | `2` | Error |

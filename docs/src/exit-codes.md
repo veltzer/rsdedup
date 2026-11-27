@@ -3,7 +3,7 @@
 rsdedup uses meaningful exit codes for scripting:
 
 | Code | Meaning |
-|------|---------|
+| ------ | --------- |
 | `0` | Success, no duplicates found |
 | `1` | Success, duplicates found |
 | `2` | Error |

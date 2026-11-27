@@ -37,7 +37,7 @@ rsdedup dedup report --compare byte-for-byte
 ## Which should I use?
 
 | Strategy | Speed | False positives | Best for |
-|----------|-------|-----------------|----------|
+| ---------- | ------- | ----------------- | ---------- |
 | `size-hash` | Fastest | Theoretically possible (cryptographic hash) | General use |
 | `hash` | Fast | Theoretically possible | When files differ early and late but not in the first 4KB |
 | `byte-for-byte` | Slowest | Zero | When absolute certainty is required |

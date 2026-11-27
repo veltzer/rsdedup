@@ -95,7 +95,7 @@ See the [Hash Cache](cache.md) chapter for details.
 ## Exit Codes
 
 | Code | Meaning |
-|------|---------|
+| ------ | --------- |
 | `0` | Success, no duplicates found |
 | `1` | Success, duplicates found |
 | `2` | Error |
@@ -105,7 +105,7 @@ This makes rsdedup scriptable (e.g. `rsdedup report && echo "clean"`).
 ## Dependencies
 
 | Crate | Purpose |
-|-------|---------|
+| ------- | --------- |
 | `clap` | CLI argument parsing |
 | `clap_complete` | Shell completion generation |
 | `walkdir` | Recursive directory traversal |

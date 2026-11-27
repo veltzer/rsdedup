@@ -9,7 +9,7 @@ rsdedup <command> <subcommand> [options] [path]
 ## Top-level commands
 
 | Command | Description |
-|---------|-------------|
+| --------- | ------------- |
 | `dedup` | Find and act on duplicate files |
 | `cache` | Manage the hash cache |
 | `version` | Show version and build information |
@@ -20,7 +20,7 @@ rsdedup <command> <subcommand> [options] [path]
 These options apply to all commands that scan files. They are hidden from the short help (`-h`) but visible in the long help (`--help`).
 
 | Flag | Description | Default |
-|------|-------------|---------|
+| ------ | ------------- | --------- |
 | `--compare <METHOD>` | Comparison method: `size-hash`, `hash`, `byte-for-byte` | `size-hash` |
 | `--hash <ALGO>` | Hash algorithm: `sha256`, `xxhash`, `blake3` | `sha256` |
 | `--min-size <BYTES>` | Minimum file size to consider | none |

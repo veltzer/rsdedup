@@ -31,14 +31,14 @@ rsdedup dedup delete --dry-run /home/user/photos
 ```
 
 | Flag | Description | Default |
-|------|-------------|---------|
+| ------ | ------------- | --------- |
 | `--keep <STRATEGY>` | Which file to keep: `interactive`, `first`, `newest`, `oldest`, `shortest-path` | `interactive` |
 | `-n, --dry-run` | Show what would be done without making changes | `false` |
 
 #### Keep strategies
 
 | Strategy | Description |
-|----------|-------------|
+| ---------- | ------------- |
 | `interactive` | Prompt for each duplicate group, showing files sorted alphabetically |
 | `first` | Keep the first file encountered during directory walk |
 | `newest` | Keep the file with the most recent modification time |
@@ -57,7 +57,7 @@ rsdedup dedup hardlink --dry-run /data
 ```
 
 | Flag | Description | Default |
-|------|-------------|---------|
+| ------ | ------------- | --------- |
 | `-n, --dry-run` | Show what would be done without making changes | `false` |
 
 Hardlinks cannot cross filesystem boundaries. rsdedup will report an error if duplicates span different filesystems.
@@ -72,5 +72,5 @@ rsdedup dedup symlink --dry-run /data
 ```
 
 | Flag | Description | Default |
-|------|-------------|---------|
+| ------ | ------------- | --------- |
 | `-n, --dry-run` | Show what would be done without making changes | `false` |
