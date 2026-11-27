@@ -6,6 +6,8 @@ authors = ["Mark Veltzer <mark.veltzer@gmail.com>"]
 description = "A fast file deduplication tool"
 license = "MIT"
 repository = "https://github.com/veltzer/rsdedup"
+keywords = ["dedup", "duplicates", "files", "cli"]
+categories = ["filesystem", "command-line-utilities"]
 
 [dependencies]
 anyhow = "1"
@@ -58,3 +60,10 @@ warnings = "deny"
 all = { level = "deny", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
+# clippy's cargo group, lint by lint: the manifest's metadata, features and
+# dependencies. multiple_crate_versions is not among them: every duplicate
+# comes from upstream (deny.toml, where it is a warning, says the same).
+cargo_common_metadata = "warn"
+negative_feature_names = "warn"
+redundant_feature_names = "warn"
+wildcard_dependencies = "warn"
