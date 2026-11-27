@@ -1,3 +1,6 @@
+// Everything here is test code; clippy.toml lets test code unwrap.
+#![cfg(test)]
+
 use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;

@@ -1,0 +1,2 @@
+# Test code may unwrap: a panic there is the test failing.
+allow-unwrap-in-tests = true
