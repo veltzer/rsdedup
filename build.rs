@@ -67,12 +67,18 @@ fn main() {
                 .map(|v| v.trim().trim_matches('"').to_owned())
         })
         .unwrap_or_else(|| "unknown".to_owned());
-    let is_dirty = Command::new("git")
-        .args(["diff", "--quiet", "HEAD"])
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .is_ok_and(|s| !s.success());
+    // Tracked files that differ from HEAD. `git diff --quiet HEAD` answers
+    // the same question but rewrites .git/index when it finds stat-dirty
+    // entries, with or without --no-optional-locks; `status` honors the
+    // flag, and a build script has no business writing there (a sandboxed
+    // build rejects it as an undeclared write).
+    let is_dirty = git_opt(&[
+        "--no-optional-locks",
+        "status",
+        "--porcelain",
+        "--untracked-files=no",
+    ])
+    .is_some_and(|out| !out.is_empty());
     let dirty_str = if is_dirty { "true" } else { "false" };
     let describe = if is_dirty {
         format!("{describe}-dirty")
