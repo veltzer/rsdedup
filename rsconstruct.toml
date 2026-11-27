@@ -65,6 +65,14 @@ args = ["--all", "--check"]
 src_files = ["Cargo.toml"]
 args = ["--all-targets", "--", "-D", "warnings"]
 
+# cargo doc: rustdoc's own lints (broken links between items, stray HTML
+# tags, bare URLs), which fire only when the docs are built. Errors through
+# `warnings = "deny"` in Cargo.toml.
+[processor.checker.clippy.doc]
+src_files = ["Cargo.toml"]
+command = "doc"
+args = ["--no-deps", "--document-private-items"]
+
 # cargo deny check: Cargo.lock against the RustSec advisory database, with
 # the fleet-shared deny.toml
 [processor.checker.clippy.deny]
