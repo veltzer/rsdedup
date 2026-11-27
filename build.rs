@@ -1,3 +1,7 @@
+//! Build script: hands the git commit, branch and dirty state, the rustc
+//! version and the build time to the crate as environment variables, for
+//! the `version` command to report.
+
 use std::process::Command;
 
 /// Format a unix timestamp as "YYYY-MM-DD HH:MM:SS" (UTC) without external

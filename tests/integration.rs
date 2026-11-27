@@ -1,4 +1,5 @@
-// Everything here is test code; clippy.toml lets test code unwrap.
+//! Integration tests of rsdedup. Everything here is test code;
+//! clippy.toml lets test code unwrap.
 #![cfg(test)]
 
 use std::fs;

@@ -1,3 +1,5 @@
+//! rsdedup: A fast file deduplication tool.
+
 mod action;
 mod cache;
 mod cli;
