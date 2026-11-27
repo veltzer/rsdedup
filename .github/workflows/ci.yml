@@ -15,7 +15,7 @@ name: CI
 "on":
   push:
     branches: ['**']
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 # Baseline is read-only; jobs that publish (release, docs) elevate their own
 # permissions individually.
