@@ -70,4 +70,5 @@ wildcard_dependencies = "warn"
 # clippy restriction lints, named one by one: leftovers that must not ship.
 dbg_macro = "warn"
 todo = "warn"
+undocumented_unsafe_blocks = "warn"
 unimplemented = "warn"
